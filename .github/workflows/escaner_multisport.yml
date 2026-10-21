@@ -1,0 +1,28 @@
+name: ArbiiScan - pruebas escaner multi-deporte
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'fuentes_es/oddspapi_multisport.py'
+      - 'test_oddspapi_multisport.py'
+      - '.github/workflows/escaner_multisport.yml'
+permissions:
+  contents: read
+concurrency:
+  group: arbi-multisport
+  cancel-in-progress: false
+jobs:
+  test_scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar mercados y arbitrajes 4 deportes
+        run: python -m unittest -v test_oddspapi_multisport.py
+      - name: Evaluar proveedor real con la cuota gratuita
+        env:
+          ODDS_PAPI_KEY: ${{ secrets.ODDS_PAPI_KEY }}
+          ODDSPAPI_ENABLE_ALERTS: 'false'
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          ARBI_WORKER_URL: https://arbiscan.dame-un-like-porfavor.workers.dev
+        run: python -m fuentes_es.oddspapi_multisport
