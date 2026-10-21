@@ -168,7 +168,7 @@ def run():
     if remaining <= 15:
         print("Protección del plan gratuito: cuota insuficiente; no se realiza consulta.")
         return
-    tournaments = os.getenv("ODDSPAPI_TOURNAMENT_IDS", "8,17")
+    tournaments = (os.getenv("ODDSPAPI_TOURNAMENT_IDS") or "").strip() or "8,17"
     if not tournaments or any(not x.isdigit() for x in tournaments.split(",")) or len(tournaments.split(","))>6:
         raise ValueError("IDs de torneos inválidos")
     response = call("odds-by-tournaments", {
