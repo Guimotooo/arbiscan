@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime,timezone,timedelta
 from fuentes_es.oddspapi_multisport import (
     SPORTS,BOOKS,choose_sport,choose_tournaments,valid_prices,evaluate_fixture,
-    join_results,scan,double_check,signature,evaluate_fixture_options
+    join_results,scan,double_check,signature,evaluate_fixture_options,book_selection
 )
 NOW=datetime(2026,10,21,17,tzinfo=timezone.utc)
 
@@ -31,7 +31,15 @@ def fixture(sport=SPORTS[0]):
 class Tests(unittest.TestCase):
     def test_sports(self):
         self.assertEqual([x[0] for x in SPORTS],[10,11,12,14])
-        self.assertEqual(len(BOOKS),5)
+        self.assertEqual(len(BOOKS),11)
+    def test_choose_five_books_for_user_demand(self):
+        choices=book_selection(NOW,{"888sport.es|pokerstars.es":3,"bet365.es|winamax.es":2})
+        self.assertEqual(len(choices),5)
+        self.assertTrue({"888sport.es","pokerstars.es","bet365.es","winamax.es"}.issubset(choices))
+        other=book_selection(NOW,{})
+        self.assertEqual(len(other),5)
+        self.assertIn("bet365.es",other)
+        self.assertIn("winamax.es",other)
     def test_2way_arbitrage_each_sport(self):
         for sport in SPORTS[1:]:
             with self.subTest(sport=sport[1]):
