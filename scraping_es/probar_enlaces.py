@@ -34,6 +34,19 @@ def main():
                     except (BrowserTimeout,Exception):
                         size=0
                         blocked=False
+                    if brand == "winamax.es" and code == 200:
+                        # Comprobar si se mantiene la ruta de evento y no solo portada.
+                        path_now=urlsplit(page.url).path
+                        event_id="74165970"
+                        selectors={
+                            "main_nodes": page.locator("main").count(),
+                            "loading_words": len(re.findall(r"\\bloading\\b", text, re.I)),
+                            "event_id_visible": event_id in text,
+                            "match_path_retained": event_id in path_now,
+                            "odds_like_dom_nodes": page.locator("[data-testid*='odd'], [class*='odd'], [class*='Odd']").count(),
+                        }
+                        print("Winamax match rendering:", json.dumps(selectors, ensure_ascii=False))
+                        print("Winamax page tail:", json.dumps(" ".join(text.split())[-400:], ensure_ascii=False))
                     if brand == "winamax.es" and code == 200 and size:
                         clean=" ".join(text.split())
                         print("Winamax public page excerpt:", json.dumps(clean[:450], ensure_ascii=False))
