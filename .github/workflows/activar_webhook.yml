@@ -1,5 +1,9 @@
 name: ArbiiScan - activar webhook Cloudflare
 on:
+  push:
+    paths:
+      - 'scripts/activar_webhook.py'
+      - '.github/workflows/activar_webhook.yml'
   workflow_dispatch:
     inputs:
       worker_url:
@@ -19,5 +23,5 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
-          WORKER_URL: ${{ inputs.worker_url }}
+          WORKER_URL: ${{ inputs.worker_url || 'https://arbiscan.dame-un-like-porfavor.workers.dev' }}
         run: python scripts/activar_webhook.py
