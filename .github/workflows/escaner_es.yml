@@ -1,6 +1,8 @@
 name: ArbiiScan - escaner Bet365 ES y Winamax ES
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '15 9,21 * * *'
   push:
     paths:
       - 'fuentes_es/oddspapi.py'
@@ -22,7 +24,7 @@ jobs:
       - name: Consultar API y calcular candidatos
         env:
           ODDS_PAPI_KEY: ${{ secrets.ODDS_PAPI_KEY }}
-          ODDSPAPI_ENABLE_ALERTS: ${{ vars.ODDSPAPI_ENABLE_ALERTS }}
+          ODDSPAPI_ENABLE_ALERTS: 'true'
           ODDSPAPI_TOURNAMENT_IDS: ${{ vars.ODDSPAPI_TOURNAMENT_IDS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
