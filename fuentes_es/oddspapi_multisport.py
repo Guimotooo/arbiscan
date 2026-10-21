@@ -229,7 +229,7 @@ def subscriber_demand(worker_url, secret):
     if not worker_url.startswith("https://") or not worker_url.endswith(".workers.dev") or not secret:
         return {}
     req=Request(worker_url.rstrip("/")+"/scan-preferences",
-                headers={"Authorization":"Bearer "+secret,"Accept":"application/json"})
+                headers={"Authorization":"Bearer "+secret,"Accept":"application/json","User-Agent":"curl/8.5.0"})
     try:
         with urlopen(req,timeout=18) as response:
             data=json.load(response)
