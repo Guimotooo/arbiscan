@@ -1,0 +1,17 @@
+name: ArbiiScan - probar conector Betfair (sin alertas)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar conector y seguridad
+        run: python -m unittest -v test_fuentes_es.py
+      - name: Consultar Betfair Exchange (solo si hay credenciales)
+        env:
+          BETFAIR_APP_KEY: ${{ secrets.BETFAIR_APP_KEY }}
+          BETFAIR_SESSION_TOKEN: ${{ secrets.BETFAIR_SESSION_TOKEN }}
+        run: python -m fuentes_es.betfair_exchange
