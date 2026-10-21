@@ -3,11 +3,14 @@
 Run only through a GitHub Actions manual dispatch. Never print tokens.
 """
 import json
+import ipaddress
+import ssl
+import socket
 import os
 import re
 import sys
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, quote
 from urllib.request import Request, urlopen
 
 
@@ -40,6 +43,48 @@ def request_api(url, payload=None):
         raise RuntimeError("No se pudo contactar con Telegram o interpretar su respuesta.") from None
 
 
+
+def resolve_and_validate_ip(hostname):
+    """Resolve A records through DNS-over-HTTPS, validate TLS and the health endpoint."""
+    endpoint = "https://cloudflare-dns.com/dns-query?name=" + quote(hostname, safe="") + "&type=A"
+    try:
+        req = Request(endpoint, headers={"Accept": "application/dns-json", "User-Agent": "ArbiiScanWebhookSetup/1.0"})
+        with urlopen(req, timeout=15) as response:
+            dns = json.load(response)
+    except (HTTPError, URLError, ValueError):
+        raise RuntimeError("No se pudo consultar DNS-over-HTTPS para el dominio del Worker.") from None
+    ips = []
+    for record in dns.get("Answer", []):
+        if record.get("type") != 1:
+            continue
+        try:
+            addr = ipaddress.ip_address(record.get("data", ""))
+        except ValueError:
+            continue
+        if addr.version == 4 and addr.is_global:
+            ips.append(str(addr))
+    if not ips:
+        raise RuntimeError("DNS no devuelve una IPv4 pública para el Worker. No se fuerza ninguna IP insegura.")
+    for ip in ips[:4]:
+        try:
+            with socket.create_connection((ip, 443), timeout=8) as sock:
+                with ssl.create_default_context().wrap_socket(sock, server_hostname=hostname) as tls:
+                    tls.settimeout(8)
+                    tls.sendall(("GET /health HTTP/1.1\\r\\nHost: " + hostname +
+                                 "\\r\\nConnection: close\\r\\n\\r\\n").encode("ascii"))
+                    data = b""
+                    while len(data) < 4096:
+                        part = tls.recv(4096)
+                        if not part:
+                            break
+                        data += part
+                    if b"ArbiiScan webhook disponible" in data and b"200" in data.split(b"\\r\\n", 1)[0]:
+                        return ip
+        except (OSError, ssl.SSLError):
+            continue
+    raise RuntimeError("Ninguna IP pública resuelta supera la comprobación HTTPS del Worker.")
+
+
 def main():
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     secret = os.getenv("WEBHOOK_SECRET", "").strip()
@@ -70,12 +115,22 @@ def main():
         raise RuntimeError("La URL no contiene todavía el Worker ArbiiScan. Revisa que Cloudflare haya desplegado worker/arbiscan.mjs.")
     print("Worker ArbiiScan verificado: /health OK.")
     base = "https://api.telegram.org/bot" + bot_token + "/"
-    result = request_api(base + "setWebhook", {
+    payload = {
         "url": raw_url + "/telegram",
         "secret_token": secret,
         "allowed_updates": ["message"],
         "drop_pending_updates": False
-    })
+    }
+    try:
+        result = request_api(base + "setWebhook", payload)
+    except RuntimeError as exc:
+        if "Failed to resolve host" not in str(exc):
+            raise
+        print("Telegram no resuelve workers.dev. Probando la opción oficial ip_address...")
+        fixed_ip = resolve_and_validate_ip(parsed.hostname)
+        payload["ip_address"] = fixed_ip
+        result = request_api(base + "setWebhook", payload)
+        print("Telegram aceptó una IPv4 verificada sin depender de su DNS.")
     if not result.get("ok"):
         raise RuntimeError("Telegram rechazó la activación del webhook: " + str(result.get("description", "Error desconocido")))
     info = request_api(base + "getWebhookInfo")
