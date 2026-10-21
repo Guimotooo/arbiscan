@@ -83,6 +83,9 @@ updatedAt es actualización del evento, una señal imperfecta de vigencia.
     kickoff = utc(fixture.get("startTime"))
     if not kickoff or kickoff <= now + timedelta(minutes=MIN_LEAD_MINUTES):
         return None
+    fixture_update = utc(fixture.get("updatedAt"))
+    if not fixture_update or not (0 <= (now-fixture_update).total_seconds() <= MAX_FIXTURE_UPDATE_AGE_SECONDS):
+        return None
     books = fixture.get("bookmakerOdds")
     if not isinstance(books, dict):
         return None
@@ -183,39 +186,56 @@ def merge_bookmaker_fixtures(results_by_book):
     return list(merged.values())
 
 def source_diagnostics(fixtures, now):
-    """Diagnóstico agregado de cobertura; no muestra datos personales ni tokens."""
+    """Distingue cobertura completa, cambios de precio y frescura del evento."""
     counts = {"fixtures": len(fixtures), "two_books": 0,
               "two_active_books": 0, "two_1x2_markets": 0,
               "two_complete_1x2": 0, "recent_fixture_updates": 0,
               "old_price_change_dates": 0, "alert_eligible_events": 0}
     for fixture in fixtures:
         books = fixture.get("bookmakerOdds") or {}
-        if not all(book in books for book in BOOKS):
+        if not all(slug in books for slug in BOOKS):
             continue
         counts["two_books"] += 1
         if not all(books[slug].get("bookmakerIsActive") is True and
                    books[slug].get("suspended") is False for slug in BOOKS):
             continue
         counts["two_active_books"] += 1
-        if not all(isinstance(books[slug].get("markets",{}).get(MARKET_ID),dict) and
+        if not all(isinstance(books[slug].get("markets", {}).get(MARKET_ID), dict) and
                    books[slug]["markets"][MARKET_ID].get("marketActive") is True
                    for slug in BOOKS):
             continue
         counts["two_1x2_markets"] += 1
-        usable = True
+        complete = True
+        old_change = False
         for slug in BOOKS:
-            odds=books[slug]["markets"][MARKET_ID].get("outcomes", {})
+            outcomes = books[slug]["markets"][MARKET_ID].get("outcomes") or {}
             for outcome_id in OUTCOMES:
-                player=(odds.get(outcome_id,{}).get("players") or {}).get("0")
-                if not isinstance(player,dict) or player.get("active") is not True:
-                    usable=False
-                    break
-                dt=utc(player.get("changedAt"))
-                if not dt or not (0 <= (now-dt).total_seconds() <= MAX_AGE_SECONDS):
-                    usable=False
-                    break
-        if usable:
-            counts["two_complete_fresh_1x2"] += 1
+                player = (outcomes.get(outcome_id, {}).get("players") or {}).get("0")
+                if not isinstance(player, dict) or player.get("active") is not True:
+                    complete = False
+                    continue
+                dt = utc(player.get("changedAt"))
+                if not dt or not (0 <= (now-dt).total_seconds() <= MAX_PRICE_CHANGE_AGE_SECONDS):
+                    old_change = True
+                    complete = False
+                try:
+                    price = float(player["price"])
+                except (ValueError, TypeError, KeyError):
+                    complete = False
+                    continue
+                if not (1 < price < 1000):
+                    complete = False
+        if old_change:
+            counts["old_price_change_dates"] += 1
+        fixture_update = utc(fixture.get("updatedAt"))
+        recent = bool(fixture_update and
+                      0 <= (now-fixture_update).total_seconds() <= MAX_FIXTURE_UPDATE_AGE_SECONDS)
+        if recent:
+            counts["recent_fixture_updates"] += 1
+        if complete:
+            counts["two_complete_1x2"] += 1
+            if recent and fixture.get("statusId") == 0:
+                counts["alert_eligible_events"] += 1
     return counts
 
 def message(opp):
