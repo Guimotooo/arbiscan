@@ -72,7 +72,7 @@ export function answerText(input){
     return intro+detail+'\n\nBeneficio mínimo TEÓRICO: +'+best.alloc.profit.toFixed(2)+' € ('+best.alloc.roi.toFixed(2)+' %).\nAntes de apostar verifica precios, reglas y límites en las casas. No se han realizado apuestas.';
   }catch(err){return '⚠️ '+err.message+'\nEnvía /plantilla.';}
 }
-const AVAILABLE_BOOKS=Object.freeze({'bet365.es':'Bet365 ES','winamax.es':'Winamax ES'});
+const AVAILABLE_BOOKS=Object.freeze({'bet365.es':'Bet365 ES','winamax.es':'Winamax ES','betfair.es':'Betfair ES','bwin.es':'Bwin ES','codere.es':'Codere ES'});
 const pendingKey=id=>'pending:'+String(id);
 function readBooks(value){
  if(!value)return [];
@@ -83,7 +83,7 @@ function selectionMarkup(books){return {inline_keyboard:[
  ...Object.entries(AVAILABLE_BOOKS).map(([key,label])=>[{text:(books.includes(key)?'✅ ':'⬜ ')+label,callback_data:'books:toggle:'+key}]),
  [{text:'✅ Guardar selección',callback_data:'books:save'}]
 ]};}
-function selectionMessage(){return '🏦 Elige las casas que utilizas y pulsa Guardar selección.\nPor ahora están conectadas Bet365 ES y Winamax ES. Para una oportunidad entre ambas debes tener las dos. Otros deportes y operadores siguen pendientes de validación.';}
+function selectionMessage(){return '🏦 Marca las casas de apuestas españolas que utilizas y pulsa «Guardar selección».\nRecibirás avisos SOLO de oportunidades que puedan cubrirse con tus casas.\nDeportes en rotación: fútbol, baloncesto, tenis y fútbol americano. La cobertura varía según OddsPapi. Las cuotas siempre deben comprobarse antes de apostar.';}
 const chatKey=id=>'subscriber:'+String(id);
 const json=(obj,status=200)=>new Response(JSON.stringify(obj),{status,headers:{'content-type':'application/json'}});
 async function telegramSend(env,chatId,text,replyMarkup){
@@ -162,10 +162,14 @@ export default {
           await telegramSend(env,id,selectionMessage(),selectionMarkup(selected));
         }
       }else if(key==='books:save'){
+        if(selected.length===0){
+          await telegramSend(env,id,'Marca al menos una casa antes de guardar.',selectionMarkup(selected));
+          return new Response('OK');
+        }
         await env.SUBSCRIBERS.put(chatKey(id),JSON.stringify({books:selected,updated_at:new Date().toISOString()}));
         await env.SUBSCRIBERS.delete(pendingKey(id));
         const names=selected.map(b=>AVAILABLE_BOOKS[b]).join(', ')||'ninguna';
-        const note=selected.length<2?'No hay arbitraje disponible entre las casas elegidas: puedes cambiarlas con /casas.':'Te avisaremos solamente de oportunidades que utilicen tus casas seleccionadas.';
+        const note=selected.length<2?'Para recibir un arbitraje entre distintas casas necesitas al menos dos. Puedes cambiarlas con /casas.':'Te avisaremos solamente de oportunidades que utilicen tus casas seleccionadas.';
         await telegramSend(env,id,'✅ Preferencias guardadas: '+names+'.\n'+note);
       }
       await fetch('https://api.telegram.org/bot'+env.TELEGRAM_BOT_TOKEN+'/answerCallbackQuery',{
@@ -182,7 +186,7 @@ export default {
       if(!env.SUBSCRIBERS)text='Las preferencias todavía no están disponibles.';
       else{
         const current=readBooks(await env.SUBSCRIBERS.get(chatKey(id)));
-        const selected=current.length?current:Object.keys(AVAILABLE_BOOKS);
+        const selected=await env.SUBSCRIBERS.get(chatKey(id))?current:[];
         await env.SUBSCRIBERS.put(pendingKey(id),JSON.stringify({books:selected}),{expirationTtl:1800});
         text=selectionMessage();markup=selectionMarkup(selected);
       }
