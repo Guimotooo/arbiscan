@@ -118,7 +118,7 @@ def main():
     payload = {
         "url": raw_url + "/telegram",
         "secret_token": secret,
-        "allowed_updates": ["message"],
+        "allowed_updates": ["message", "callback_query"],
         "drop_pending_updates": False
     }
     try:
@@ -139,7 +139,9 @@ def main():
         raise RuntimeError("Telegram no confirma la dirección del webhook.")
     print("Webhook registrado y confirmado correctamente.")
     print("Dirección pública: " + webhook.get("url", ""))
-    print("Actualizaciones permitidas: mensajes.")
+    if not set(("message","callback_query")).issubset(webhook.get("allowed_updates", [])):
+        raise RuntimeError("Telegram no confirma la recepción de pulsaciones de botones.")
+    print("Actualizaciones permitidas: mensajes y botones (callback_query).")
     print("Siguiente acción: desactivar GitHub Actions - consultas Telegram para evitar getUpdates en paralelo.")
 
 
