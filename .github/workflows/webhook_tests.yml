@@ -1,0 +1,20 @@
+name: ArbiiScan - pruebas webhook instantaneo
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'worker/**'
+      - '.github/workflows/webhook_tests.yml'
+permissions:
+  contents: read
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Probar calculadora del webhook
+        run: node --test worker/arbiscan.test.mjs
