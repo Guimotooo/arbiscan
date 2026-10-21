@@ -275,7 +275,8 @@ def broadcast_alert(worker_url, shared_secret, text, event_key, books, opener=ur
     payload = json.dumps({"event_key":event_key,"text":text,"books":books},ensure_ascii=False).encode("utf-8")
     request = Request(worker_url.rstrip("/")+"/broadcast",data=payload,method="POST",
                       headers={"Authorization":"Bearer "+shared_secret,
-                               "Content-Type":"application/json"})
+                               "Content-Type":"application/json",
+                               "User-Agent":"curl/8.5.0"})
     with opener(request,timeout=35) as response:
         report=json.load(response)
     if not isinstance(report,dict) or report.get("failed",0)>0:
