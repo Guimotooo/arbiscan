@@ -23,7 +23,7 @@ jobs:
           if not secret:
               raise SystemExit("Falta WEBHOOK_SECRET")
           url="https://arbiscan.dame-un-like-porfavor.workers.dev/scan-preferences"
-          request=Request(url,headers={"Authorization":"Bearer "+secret})
+          request=Request(url,headers={"Authorization":"Bearer "+secret,"User-Agent":"curl/8.5.0"})
           try:
               with urlopen(request,timeout=15) as r:
                   data=json.load(r)
