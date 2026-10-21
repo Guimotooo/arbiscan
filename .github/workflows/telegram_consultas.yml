@@ -4,8 +4,10 @@ on:
   push:
     paths:
       - '.github/workflows/telegram_consultas.yml'
+      - 'telegram_consultas.py'
+      - 'test_telegram_consultas.py'
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/5 * * * *'
 permissions:
   contents: read
 concurrency:
