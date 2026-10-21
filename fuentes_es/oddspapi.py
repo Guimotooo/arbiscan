@@ -177,6 +177,41 @@ def merge_bookmaker_fixtures(results_by_book):
                 old["bookmakerOdds"][slug] = book_odds[slug]
     return list(merged.values())
 
+def source_diagnostics(fixtures, now):
+    """Diagnóstico agregado de cobertura; no muestra datos personales ni tokens."""
+    counts = {"fixtures": len(fixtures), "two_books": 0,
+              "two_active_books": 0, "two_1x2_markets": 0,
+              "two_complete_fresh_1x2": 0}
+    for fixture in fixtures:
+        books = fixture.get("bookmakerOdds") or {}
+        if not all(book in books for book in BOOKS):
+            continue
+        counts["two_books"] += 1
+        if not all(books[slug].get("bookmakerIsActive") is True and
+                   books[slug].get("suspended") is False for slug in BOOKS):
+            continue
+        counts["two_active_books"] += 1
+        if not all(isinstance(books[slug].get("markets",{}).get(MARKET_ID),dict) and
+                   books[slug]["markets"][MARKET_ID].get("marketActive") is True
+                   for slug in BOOKS):
+            continue
+        counts["two_1x2_markets"] += 1
+        usable = True
+        for slug in BOOKS:
+            odds=books[slug]["markets"][MARKET_ID].get("outcomes", {})
+            for outcome_id in OUTCOMES:
+                player=(odds.get(outcome_id,{}).get("players") or {}).get("0")
+                if not isinstance(player,dict) or player.get("active") is not True:
+                    usable=False
+                    break
+                dt=utc(player.get("changedAt"))
+                if not dt or not (0 <= (now-dt).total_seconds() <= MAX_AGE_SECONDS):
+                    usable=False
+                    break
+        if usable:
+            counts["two_complete_fresh_1x2"] += 1
+    return counts
+
 def message(opp):
     lines = [
       "ARBIISCAN | POSIBLE ARBITRAJE (NO CONFIRMADO)",
@@ -212,7 +247,7 @@ def run():
             "language": "es", "verbosity": 3,
         }, key)
     response = merge_bookmaker_fixtures(results_by_book)
-    print("Partidos emparejados:", len(response))
+    print("Cobertura de cuotas:", source_diagnostics(response, datetime.now(timezone.utc)))
     candidates = scan(response)
     print("Candidatos matemáticos encontrados:", len(candidates))
     if os.getenv("ODDSPAPI_ENABLE_ALERTS") != "true":
