@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fuentes_es.oddspapi import quotes_for_fixture,scan,remaining_quota,call,merge_bookmaker_fixtures
 
 NOW=datetime(2026,10,21,16,0,tzinfo=timezone.utc)
-def fixture(draw_price=3.8, status=0, changed=None):
+def fixture(draw_price=3.8, status=0, changed=None, updated=None):
     changed=(changed or NOW).isoformat()
     def book(home,draw,away):
         return {"bookmakerIsActive":True,"suspended":False,"markets":{"101":{
@@ -11,7 +11,7 @@ def fixture(draw_price=3.8, status=0, changed=None):
            k:{"players":{"0":{"active":True,"price":price,"changedAt":changed}}}
            for k,price in zip(("101","102","103"),(home,draw,away))}}}}
     return {"sportId":10,"statusId":status,"fixtureId":"f1",
-            "startTime":(NOW+timedelta(hours=2)).isoformat(),
+            "startTime":(NOW+timedelta(hours=2)).isoformat(),\n            "updatedAt":(updated or NOW).isoformat(),
             "participant1Name":"Casa","participant2Name":"Fuera",
             "bookmakerOdds":{"bet365.es":book(3.6,draw_price,1.8),
                              "winamax.es":book(1.8,3.0,3.8)}}
@@ -22,7 +22,11 @@ class TestOddspapi(unittest.TestCase):
         self.assertGreater(opp["profit"],0)
         self.assertEqual(len({x["bookmaker"] for x in opp["offers"]}),2)
     def test_rejects_old_quote(self):
-        self.assertIsNone(quotes_for_fixture(fixture(changed=NOW-timedelta(hours=2)), NOW))
+        self.assertIsNone(quotes_for_fixture(fixture(changed=NOW-timedelta(days=8)), NOW))
+    def test_unchanged_price_is_not_stale(self):
+        self.assertIsNotNone(quotes_for_fixture(fixture(changed=NOW-timedelta(hours=3)),NOW))
+    def test_rejects_old_fixture_update(self):
+        self.assertIsNone(quotes_for_fixture(fixture(updated=NOW-timedelta(hours=3)),NOW))
     def test_rejects_started(self):
         self.assertIsNone(quotes_for_fixture(fixture(status=2),NOW))
     def test_rejects_suspend(self):
