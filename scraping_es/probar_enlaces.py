@@ -53,6 +53,30 @@ def main():
                         print("Winamax headings:",json.dumps(headings[:25],ensure_ascii=False)[:1100])
                         print("Winamax has exact match marker:", "74165970" in page.content())
                         print("Winamax candidate odds elements:", json.dumps(page.locator("[class*=odd], [class*=Odd]").all_inner_texts()[-15:])[:800])
+                        # Sólo texto público visible: buscar encabezados del mercado 1X2 en el evento, no en menú.
+                        terms=["match result","match winner","full time result","1x2","result of the match","winner (90","90 minutes","resultado del partido"]
+                        lower=text.casefold()
+                        matched=[]
+                        for term in terms:
+                            start=0
+                            while len(matched)<15:
+                                pos=lower.find(term,start)
+                                if pos<0:break
+                                matched.append({"term":term,"position":pos,"excerpt":" ".join(text[max(0,pos-140):pos+340].split())})
+                                start=pos+len(term)
+                        print("Winamax 1X2 market labels:",json.dumps(matched[:15],ensure_ascii=False)[:3500])
+                        # Identificar estructuras del DOM asociadas a nombres de equipos; no volcar HTML, scripts ni cookies.
+                        context=page.evaluate("""() => {
+                          const terms=['real madrid','rb leipzig','match result','1x2','full time result'];
+                          const nodes=[...document.querySelectorAll('body *')].filter(e =>
+                            e.children.length===0 && terms.some(t=>(e.textContent||'').toLowerCase().includes(t)));
+                          return nodes.slice(-12).map(e=>({text:(e.innerText||e.textContent||'').trim().slice(0,90),
+                            tag:e.tagName,cls:typeof e.className==='string'?e.className.slice(0,140):'',
+                            parentText:(e.parentElement?.innerText||'').trim().slice(0,190),
+                            parentClass:typeof e.parentElement?.className==='string'?e.parentElement.className.slice(0,140):''}));
+                        }""")
+                        print("Winamax event DOM nodes:",json.dumps(context,ensure_ascii=False)[:2800])
+
                     if brand == "winamax.es" and code == 200 and size:
                         clean=" ".join(text.split())
                         print("Winamax public page excerpt:", json.dumps(clean[:450], ensure_ascii=False))
