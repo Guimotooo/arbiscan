@@ -23,6 +23,13 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Falta variable CLOUDFLARE_ACCOUNT_ID"; exit 1; }
       - name: Desplegar Worker preservando variables y secretos
         run: npx --yes wrangler@4 deploy --config worker/wrangler.toml --keep-vars
+      - name: Sincronizar autenticacion interna sin tocar webhook Telegram
+        env:
+          WORKER_BROADCAST_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+        shell: bash
+        run: |
+          test -n "$WORKER_BROADCAST_SECRET" || { echo "Falta secret de comunicación interna"; exit 1; }
+          printf '%s' "$WORKER_BROADCAST_SECRET" | npx --yes wrangler@4 secret put BROADCAST_SECRET --config worker/wrangler.toml
       - name: Comprobar Worker en producción
         run: |
           curl --fail --silent --show-error https://arbiscan.dame-un-like-porfavor.workers.dev/health
