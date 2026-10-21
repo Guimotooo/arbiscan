@@ -27,5 +27,6 @@ jobs:
           ODDSPAPI_ENABLE_ALERTS: 'true'
           ODDSPAPI_TOURNAMENT_IDS: ${{ vars.ODDSPAPI_TOURNAMENT_IDS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          ARBI_WORKER_URL: https://arbiscan.dame-un-like-porfavor.workers.dev
         run: python -m fuentes_es.oddspapi
