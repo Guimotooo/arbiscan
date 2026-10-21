@@ -47,6 +47,10 @@ def main():
                         }
                         print("Winamax match rendering:", json.dumps(selectors, ensure_ascii=False))
                         print("Winamax page tail:", json.dumps(" ".join(text.split())[-800:], ensure_ascii=False))
+                        excerpt=text[11000:15000]
+                        print("Winamax content section:", json.dumps(" ".join(excerpt.split())[:1500],ensure_ascii=False))
+                        headings=page.locator("h1,h2,h3").all_inner_texts()
+                        print("Winamax headings:",json.dumps(headings[:25],ensure_ascii=False)[:1100])
                         print("Winamax has exact match marker:", "74165970" in page.content())
                         print("Winamax candidate odds elements:", json.dumps(page.locator("[class*=odd], [class*=Odd]").all_inner_texts()[-15:])[:800])
                     if brand == "winamax.es" and code == 200 and size:
