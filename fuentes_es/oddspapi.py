@@ -266,13 +266,13 @@ def message(opp):
               "Fuente: OddsPapi (bet365.es y winamax.es). No se ha apostado."]
     return "\n".join(lines)
 
-def broadcast_alert(worker_url, shared_secret, text, event_key, opener=urlopen):
+def broadcast_alert(worker_url, shared_secret, text, event_key, books, opener=urlopen):
     """Entrega la alerta al webhook propio; no expone el token de Telegram a OddsPapi."""
     if not worker_url.startswith("https://") or not worker_url.endswith(".workers.dev"):
         raise ValueError("URL de Worker inválida")
     if not shared_secret:
         raise ValueError("Falta WEBHOOK_SECRET para publicar")
-    payload = json.dumps({"event_key":event_key,"text":text},ensure_ascii=False).encode("utf-8")
+    payload = json.dumps({"event_key":event_key,"text":text,"books":books},ensure_ascii=False).encode("utf-8")
     request = Request(worker_url.rstrip("/")+"/broadcast",data=payload,method="POST",
                       headers={"Authorization":"Bearer "+shared_secret,
                                "Content-Type":"application/json"})
@@ -336,7 +336,7 @@ def run():
         import hashlib
         signature=repr(selected_signature(opp)).encode("utf-8")
         event_key="1x2:"+hashlib.sha256(signature).hexdigest()[:24]
-        report=broadcast_alert(worker_url,shared_secret,message(opp),event_key)
+        report=broadcast_alert(worker_url,shared_secret,message(opp),event_key,sorted({o["bookmaker_key"] for o in opp["offers"]}))
         print("Alerta distribuida:",report)
 
 if __name__ == "__main__":
