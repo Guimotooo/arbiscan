@@ -28,7 +28,7 @@ def main():
                     actual_host=urlsplit(page.url).hostname
                     code=response.status if response is not None else None
                     try:
-                        text=page.locator("body").inner_text(timeout=3000)[:12000]
+                        text=page.locator("body").inner_text(timeout=6000)[:100000]
                         size=len(text)
                         blocked=bool(BLOCK_TEXT.search(text))
                     except (BrowserTimeout,Exception):
@@ -46,7 +46,9 @@ def main():
                             "odds_like_dom_nodes": page.locator("[data-testid*='odd'], [class*='odd'], [class*='Odd']").count(),
                         }
                         print("Winamax match rendering:", json.dumps(selectors, ensure_ascii=False))
-                        print("Winamax page tail:", json.dumps(" ".join(text.split())[-400:], ensure_ascii=False))
+                        print("Winamax page tail:", json.dumps(" ".join(text.split())[-800:], ensure_ascii=False))
+                        print("Winamax has exact match marker:", "74165970" in page.content())
+                        print("Winamax candidate odds elements:", json.dumps(page.locator("[class*=odd], [class*=Odd]").all_inner_texts()[-15:])[:800])
                     if brand == "winamax.es" and code == 200 and size:
                         clean=" ".join(text.split())
                         print("Winamax public page excerpt:", json.dumps(clean[:450], ensure_ascii=False))
