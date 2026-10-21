@@ -202,9 +202,16 @@ def main():
     updates = call(token,"getUpdates",
                    {"limit":100,"timeout":0,"allowed_updates":["message"]})
     highest = None
+    authorized_messages = 0
+    replies = 0
     for update in updates:
         message = update.get("message")
-        if message and str(message.get("chat",{}).get("id")) == allowed_chat:
+        authorized = bool(message) and str(message.get("chat",{}).get("id")) == allowed_chat
+        if message:
+            print("Incoming Telegram message: authorized =", authorized,
+                  "; private =", message.get("chat",{}).get("type") == "private")
+        if authorized:
+            authorized_messages += 1
             msg = str(message.get("text","")).strip()
             try:
                 if msg.lower().startswith("/comparar"):
@@ -219,13 +226,16 @@ def main():
             except ValueError as exc:
                 response = "⚠️ " + str(exc) + "\nEnvía /plantilla."
             if response:
-                call(token,"sendMessage",{"chat_id":allowed_chat,
+                result = call(token,"sendMessage",{"chat_id":allowed_chat,
                     "text":response[:4000]})
+                replies += 1
+                print("Telegram reply accepted:", bool(result))
         if isinstance(update.get("update_id"),int):
             highest = update["update_id"]
     if highest is not None:
         call(token,"getUpdates",{"offset":highest+1,"limit":1,"timeout":0})
-    print("Updates processed:",len(updates))
+    print("Updates processed:",len(updates),
+          "authorized:",authorized_messages,"replied:",replies)
 
 if __name__ == "__main__":
     main()
