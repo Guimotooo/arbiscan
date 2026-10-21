@@ -79,10 +79,24 @@ function readBooks(value){
  try{const data=JSON.parse(value);return Array.isArray(data.books)?[...new Set(data.books.filter(b=>Object.hasOwn(AVAILABLE_BOOKS,b)))]:[];}
  catch{return ['bet365.es','winamax.es'];}
 }
-function selectionMarkup(books){return {inline_keyboard:[
- ...Object.entries(AVAILABLE_BOOKS).map(([key,label])=>[{text:(books.includes(key)?'✅ ':'⬜ ')+label,callback_data:'books:toggle:'+key}]),
- [{text:'✅ Guardar selección',callback_data:'books:save'}]
-]};}
+function selectionMarkup(books){
+ const entries=Object.entries(AVAILABLE_BOOKS),rows=[];
+ for(let i=0;i<entries.length;i+=2){
+   rows.push(entries.slice(i,i+2).map(([key,label])=>({
+     text:(books.includes(key)?'✅ ':'⬜ ')+label,callback_data:'books:toggle:'+key
+   })));
+ }
+ rows.push([{text:'☑️ Todas',callback_data:'books:all'},{text:'⬜ Ninguna',callback_data:'books:none'}]);
+ rows.push([{text:'✅ Guardar selección',callback_data:'books:save'}]);
+ return {inline_keyboard:rows};
+}
+async function updateSelectionButtons(env,id,messageId,selected){
+ const response=await fetch('https://api.telegram.org/bot'+env.TELEGRAM_BOT_TOKEN+'/editMessageReplyMarkup',{
+   method:'POST',headers:{'content-type':'application/json'},
+   body:JSON.stringify({chat_id:id,message_id:messageId,reply_markup:selectionMarkup(selected)})
+ });
+ return response.ok;
+}
 function selectionMessage(){return '🏦 Marca las casas de apuestas españolas que utilizas y pulsa «Guardar selección».\nRecibirás avisos SOLO de oportunidades que puedan cubrirse con tus casas.\nDeportes en rotación: fútbol, baloncesto, tenis y fútbol americano. Las 11 casas aparecen en el catálogo de OddsPapi, pero no todas tienen cuotas en cada partido. Las cuotas siempre deben comprobarse antes de apostar.';}
 const chatKey=id=>'subscriber:'+String(id);
 const json=(obj,status=200)=>new Response(JSON.stringify(obj),{status,headers:{'content-type':'application/json'}});
@@ -169,20 +183,30 @@ export default {
       const pending=await env.SUBSCRIBERS.get(pendingKey(id));
       if(!pending){await telegramSend(env,id,'Esta selección ha caducado. Envía /casas para empezar de nuevo.');return new Response('OK');}
       let selected=readBooks(pending);
-      if(key.startsWith('books:toggle:')){
-        const brand=key.slice('books:toggle:'.length);
-        if(Object.hasOwn(AVAILABLE_BOOKS,brand)){
-          selected=selected.includes(brand)?selected.filter(b=>b!==brand):[...selected,brand];
-          await env.SUBSCRIBERS.put(pendingKey(id),JSON.stringify({books:selected}),{expirationTtl:1800});
-          await telegramSend(env,id,selectionMessage(),selectionMarkup(selected));
+      if(key.startsWith('books:toggle:')||key==='books:all'||key==='books:none'){
+        if(key==='books:all')selected=Object.keys(AVAILABLE_BOOKS);
+        else if(key==='books:none')selected=[];
+        else {
+          const brand=key.slice('books:toggle:'.length);
+          if(Object.hasOwn(AVAILABLE_BOOKS,brand))
+            selected=selected.includes(brand)?selected.filter(b=>b!==brand):[...selected,brand];
         }
+        await env.SUBSCRIBERS.put(pendingKey(id),JSON.stringify({books:selected}),{expirationTtl:1800});
+        await updateSelectionButtons(env,id,cb.message.message_id,selected);
       }else if(key==='books:save'){
         if(selected.length===0){
-          await telegramSend(env,id,'Marca al menos una casa antes de guardar.',selectionMarkup(selected));
+          await fetch('https://api.telegram.org/bot'+env.TELEGRAM_BOT_TOKEN+'/answerCallbackQuery',{
+            method:'POST',headers:{'content-type':'application/json'},
+            body:JSON.stringify({callback_query_id:cb.id,text:'Elige al menos una casa de apuestas',show_alert:true})
+          });
           return new Response('OK');
         }
         await env.SUBSCRIBERS.put(chatKey(id),JSON.stringify({books:selected,updated_at:new Date().toISOString()}));
         await env.SUBSCRIBERS.delete(pendingKey(id));
+        await fetch('https://api.telegram.org/bot'+env.TELEGRAM_BOT_TOKEN+'/editMessageReplyMarkup',{
+          method:'POST',headers:{'content-type':'application/json'},
+          body:JSON.stringify({chat_id:id,message_id:cb.message.message_id,reply_markup:{inline_keyboard:[]}})
+        });
         const names=selected.map(b=>AVAILABLE_BOOKS[b]).join(', ')||'ninguna';
         const note=selected.length<2?'Para recibir un arbitraje entre distintas casas necesitas al menos dos. Puedes cambiarlas con /casas.':'Te avisaremos solamente de oportunidades que utilicen tus casas seleccionadas.';
         await telegramSend(env,id,'✅ Preferencias guardadas: '+names+'.\n'+note);
