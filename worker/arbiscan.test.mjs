@@ -21,7 +21,7 @@ function fakeKV(){
    async list({prefix}){return {keys:[...values.keys()].filter(k=>k.startsWith(prefix)).map(name=>({name})),list_complete:true};}};
 }
 test('Telegram user selects bookmakers and only receives matching alerts',async()=>{
- const kv=fakeKV(),env={WEBHOOK_SECRET:'testsecret',TELEGRAM_BOT_TOKEN:'testtoken',SUBSCRIBERS:kv};
+ const kv=fakeKV(),env={WEBHOOK_SECRET:'testsecret',BROADCAST_SECRET:'testsecret',TELEGRAM_BOT_TOKEN:'testtoken',SUBSCRIBERS:kv};
  const previous=globalThis.fetch,delivered=[];
  globalThis.fetch=async(url,init)=>{delivered.push({url,body:JSON.parse(init.body)});return new Response('{"ok":true}',{status:200});};
  const req=(id,text)=>new Request('https://arbiscan.test/telegram',{method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':'testsecret','content-type':'application/json'},body:JSON.stringify({message:{text,chat:{type:'private',id}}})});
@@ -48,7 +48,7 @@ test('Telegram user selects bookmakers and only receives matching alerts',async(
  }finally{globalThis.fetch=previous;}
 });
 test('broadcast rejects unauthenticated calls',async()=>{
-  const env={WEBHOOK_SECRET:'s',TELEGRAM_BOT_TOKEN:'t',SUBSCRIBERS:fakeKV()};
+  const env={WEBHOOK_SECRET:'s',BROADCAST_SECRET:'s',TELEGRAM_BOT_TOKEN:'t',SUBSCRIBERS:fakeKV()};
   const response=await worker.fetch(new Request('https://arbiscan.test/broadcast',{method:'POST'}),env);
   assert.equal(response.status,403);
 });
