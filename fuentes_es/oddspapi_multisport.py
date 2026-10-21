@@ -27,7 +27,7 @@ SPORTS = (
     (14, "Fútbol americano", "141", {"141": "1", "142": "2"}, "Ganador del partido"),
 )
 MAX_AGE_SECONDS = 7 * 86400
-MAX_LEAGUES_PER_SCAN = 6
+MAX_LEAGUES_PER_SCAN = 5
 MIN_LEAD_MINUTES = 15
 MAX_ALERTS = 3
 MIN_ROI = 0.5
