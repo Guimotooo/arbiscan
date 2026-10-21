@@ -145,31 +145,62 @@ export default {
     const secret=request.headers.get('X-Telegram-Bot-Api-Secret-Token');
     if(!secret||secret!==env.WEBHOOK_SECRET)return new Response('Forbidden',{status:403});
     let data;try{data=await request.json();}catch{return new Response('Bad JSON',{status:400});}
+    const cb=data.callback_query;
+    if(cb){
+      const id=String(cb.message?.chat?.id||'');
+      const key=String(cb.data||'');
+      if(!id||cb.message?.chat?.type!=='private'||!key.startsWith('books:'))return new Response('OK');
+      if(!env.SUBSCRIBERS)return new Response('Worker sin KV',{status:503});
+      let selected=readBooks(await env.SUBSCRIBERS.get(pendingKey(id)));
+      if(key.startsWith('books:toggle:')){
+        const brand=key.slice('books:toggle:'.length);
+        if(Object.hasOwn(AVAILABLE_BOOKS,brand)){
+          selected=selected.includes(brand)?selected.filter(b=>b!==brand):[...selected,brand];
+          await env.SUBSCRIBERS.put(pendingKey(id),JSON.stringify({books:selected}),{expirationTtl:1800});
+          await telegramSend(env,id,selectionMessage(),selectionMarkup(selected));
+        }
+      }else if(key==='books:save'){
+        await env.SUBSCRIBERS.put(chatKey(id),JSON.stringify({books:selected,updated_at:new Date().toISOString()}));
+        await env.SUBSCRIBERS.delete(pendingKey(id));
+        const names=selected.map(b=>AVAILABLE_BOOKS[b]).join(', ')||'ninguna';
+        const note=selected.length<2?'No hay arbitraje disponible entre las casas elegidas: puedes cambiarlas con /casas.':'Te avisaremos solamente de oportunidades que utilicen tus casas seleccionadas.';
+        await telegramSend(env,id,'✅ Preferencias guardadas: '+names+'.\n'+note);
+      }
+      await fetch('https://api.telegram.org/bot'+env.TELEGRAM_BOT_TOKEN+'/answerCallbackQuery',{
+        method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({callback_query_id:cb.id})
+      });
+      return new Response('OK');
+    }
     const msg=data.message;
     if(!msg||msg.chat?.type!=='private'||msg.chat?.id==null)return new Response('OK');
     const id=String(msg.chat.id);
     const command=norm(String(msg.text||'').trim().split(/[\s\n]/)[0]).split('@')[0];
-    let text='';
-    if(command==='/start'){
-      if(!env.SUBSCRIBERS) text='El registro automático todavía no está configurado. Vuelve a intentarlo cuando se active el almacenamiento.';
+    let text='',markup;
+    if(command==='/start'||command==='/casas'){
+      if(!env.SUBSCRIBERS)text='Las preferencias todavía no están disponibles.';
       else{
-        await env.SUBSCRIBERS.put(chatKey(id),new Date().toISOString());
-        text='✅ ¡Alertas activadas! ArbiiScan te enviará automáticamente posibles arbitrajes cuando el escáner encuentre alguno y las cuotas superen la doble comprobación. No tienes que escribir nada más. Para dejar de recibirlos: /stop. Cuotas pendientes de confirmar en ambas casas.';
+        const current=readBooks(await env.SUBSCRIBERS.get(chatKey(id)));
+        const selected=current.length?current:Object.keys(AVAILABLE_BOOKS);
+        await env.SUBSCRIBERS.put(pendingKey(id),JSON.stringify({books:selected}),{expirationTtl:1800});
+        text=selectionMessage();markup=selectionMarkup(selected);
       }
     }else if(command==='/stop'){
-      if(!env.SUBSCRIBERS) text='El registro automático todavía no está configurado.';
+      if(!env.SUBSCRIBERS)text='El registro todavía no está configurado.';
       else{
         await env.SUBSCRIBERS.delete(chatKey(id));
-        text='🔕 Alertas desactivadas. Puedes volver a activarlas enviando /start.';
+        await env.SUBSCRIBERS.delete(pendingKey(id));
+        text='🔕 Alertas desactivadas. Envía /start para activarlas de nuevo.';
       }
     }else if(command==='/estado'){
-      if(!env.SUBSCRIBERS)text='Servicio de suscripciones todavía no configurado.';
-      else text=(await env.SUBSCRIBERS.get(chatKey(id)))?
-        '✅ Tu suscripción está activa. Recibirás alertas automáticamente cuando haya oportunidades candidatas.':
-        '🔕 No estás suscrito. Envía /start para activar las alertas.';
+      if(!env.SUBSCRIBERS)text='Almacenamiento no configurado.';
+      else{
+        const saved=await env.SUBSCRIBERS.get(chatKey(id));
+        const selected=readBooks(saved);
+        text=saved?'✅ Casas guardadas: '+(selected.map(b=>AVAILABLE_BOOKS[b]).join(', ')||'ninguna')+'. Puedes cambiarlas con /casas.':'🔕 No estás suscrito. Envía /start.';
+      }
     }else{text=answerText(msg.text);}
     if(!text)return new Response('OK');
-    const reply=await telegramSend(env,id,text);
+    const reply=await telegramSend(env,id,text,markup);
     if(!reply.ok)return new Response('Telegram send failed',{status:502});
     return new Response('OK');
   }
