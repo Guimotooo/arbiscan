@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timedelta, timezone
-from fuentes_es.oddspapi import quotes_for_fixture,scan,remaining_quota,call,merge_bookmaker_fixtures
+from fuentes_es.oddspapi import quotes_for_fixture,scan,remaining_quota,call,merge_bookmaker_fixtures,confirm_candidates
 
 NOW=datetime(2026,10,21,16,0,tzinfo=timezone.utc)
 def fixture(draw_price=3.8, status=0, changed=None, updated=None):
@@ -26,8 +26,13 @@ class TestOddspapi(unittest.TestCase):
         self.assertIsNone(quotes_for_fixture(fixture(changed=NOW-timedelta(days=8)), NOW))
     def test_unchanged_price_is_not_stale(self):
         self.assertIsNotNone(quotes_for_fixture(fixture(changed=NOW-timedelta(hours=3)),NOW))
-    def test_rejects_old_fixture_update(self):
-        self.assertIsNone(quotes_for_fixture(fixture(updated=NOW-timedelta(hours=3)),NOW))
+    def test_event_metadata_not_price_freshness(self):
+        self.assertIsNotNone(quotes_for_fixture(fixture(updated=NOW-timedelta(hours=3)),NOW))
+    def test_second_quote_must_match(self):
+        a=quotes_for_fixture(fixture(), NOW)
+        b=quotes_for_fixture(fixture(draw_price=4.2),NOW)
+        self.assertEqual(confirm_candidates([a], [b], NOW.isoformat()),[])
+        self.assertEqual(len(confirm_candidates([a], [a], NOW.isoformat())),1)
     def test_rejects_started(self):
         self.assertIsNone(quotes_for_fixture(fixture(status=2),NOW))
     def test_rejects_suspend(self):
