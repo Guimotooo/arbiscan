@@ -78,8 +78,25 @@ def fetch_public_html(brand: str, url: str, mode: str = "http"):
         from scrapling.fetchers import Fetcher
         response=Fetcher.get(url)
     elif mode == "dynamic":
-        from scrapling.fetchers import DynamicFetcher
-        response=DynamicFetcher.fetch(url, network_idle=False)
+        # Scrapling 0.5 removed DynamicFetcher: render with vanilla Playwright,
+        # and parse resulting HTML with Scrapling Selector.
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as pw:
+            browser=pw.chromium.launch(headless=True)
+            try:
+                page=browser.new_page(locale="es-ES",timezone_id="Europe/Madrid")
+                navigation=page.goto(url,wait_until="domcontentloaded",timeout=25000)
+                page.wait_for_timeout(4000)
+                status=navigation.status if navigation else 0
+                redirected=page.url
+                html=page.content()
+            finally:
+                browser.close()
+        if status<200 or status>=400:
+            raise ValueError("El sitio respondió HTTP "+str(status))
+        if urlsplit(redirected).hostname not in ALLOWED_HOSTS[brand]:
+            raise ValueError("Redirección fuera del dominio oficial")
+        return html.encode("utf-8")
     else:
         raise ValueError("Modo desconocido")
     status=int(getattr(response,"status",0) or 0)
