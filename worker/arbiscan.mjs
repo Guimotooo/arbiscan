@@ -72,7 +72,7 @@ export function answerText(input){
     return intro+detail+'\n\nBeneficio mínimo TEÓRICO: +'+best.alloc.profit.toFixed(2)+' € ('+best.alloc.roi.toFixed(2)+' %).\nAntes de apostar verifica precios, reglas y límites en las casas. No se han realizado apuestas.';
   }catch(err){return '⚠️ '+err.message+'\nEnvía /plantilla.';}
 }
-const AVAILABLE_BOOKS=Object.freeze({'bet365.es':'Bet365 ES','winamax.es':'Winamax ES','betfair.es':'Betfair ES','bwin.es':'Bwin ES','codere.es':'Codere ES'});
+const AVAILABLE_BOOKS=Object.freeze({'bet365.es':'Bet365 ES','winamax.es':'Winamax ES','betfair.es':'Betfair ES','bwin.es':'Bwin ES','codere.es':'Codere ES','888sport.es':'888sport ES','betway.es':'Betway ES','goldenpark.es':'GoldenPark ES','leovegas.es':'LeoVegas ES','paf.es':'Paf ES','pokerstars.es':'PokerStars ES'});
 const pendingKey=id=>'pending:'+String(id);
 function readBooks(value){
  if(!value)return [];
@@ -83,7 +83,7 @@ function selectionMarkup(books){return {inline_keyboard:[
  ...Object.entries(AVAILABLE_BOOKS).map(([key,label])=>[{text:(books.includes(key)?'✅ ':'⬜ ')+label,callback_data:'books:toggle:'+key}]),
  [{text:'✅ Guardar selección',callback_data:'books:save'}]
 ]};}
-function selectionMessage(){return '🏦 Marca las casas de apuestas españolas que utilizas y pulsa «Guardar selección».\nRecibirás avisos SOLO de oportunidades que puedan cubrirse con tus casas.\nDeportes en rotación: fútbol, baloncesto, tenis y fútbol americano. La cobertura varía según OddsPapi. Las cuotas siempre deben comprobarse antes de apostar.';}
+function selectionMessage(){return '🏦 Marca las casas de apuestas españolas que utilizas y pulsa «Guardar selección».\nRecibirás avisos SOLO de oportunidades que puedan cubrirse con tus casas.\nDeportes en rotación: fútbol, baloncesto, tenis y fútbol americano. Las 11 casas aparecen en el catálogo de OddsPapi, pero no todas tienen cuotas en cada partido. Las cuotas siempre deben comprobarse antes de apostar.';}
 const chatKey=id=>'subscriber:'+String(id);
 const json=(obj,status=200)=>new Response(JSON.stringify(obj),{status,headers:{'content-type':'application/json'}});
 async function telegramSend(env,chatId,text,replyMarkup){
@@ -107,6 +107,21 @@ export default {
   async fetch(request,env){
     const path=new URL(request.url).pathname;
     if(request.method==='GET'&&path==='/health')return new Response('ArbiiScan webhook disponible');
+    if(request.method==='GET'&&path==='/scan-preferences'){
+      if(!env.WEBHOOK_SECRET||!env.SUBSCRIBERS)return json({error:'KV sin configurar'},503);
+      if(request.headers.get('Authorization')!=='Bearer '+env.WEBHOOK_SECRET)
+        return json({error:'No autorizado'},403);
+      const ids=await subscribers(env.SUBSCRIBERS),pairs={};
+      for(const id of ids){
+        const saved=readBooks(await env.SUBSCRIBERS.get(chatKey(id)));
+        for(let i=0;i<saved.length;i++)for(let j=i+1;j<saved.length;j++){
+          const key=[saved[i],saved[j]].sort().join('|');
+          pairs[key]=(pairs[key]||0)+1;
+        }
+      }
+      // Nunca devolvemos IDs de Telegram; únicamente recuentos agregados.
+      return json({subscriber_count:ids.length,pairs});
+    }
     if(request.method==='POST'&&path==='/broadcast'){
       if(!env.WEBHOOK_SECRET||!env.TELEGRAM_BOT_TOKEN||!env.SUBSCRIBERS)
         return json({error:'Broadcast sin configurar'},503);
