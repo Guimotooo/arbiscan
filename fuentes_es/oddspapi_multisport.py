@@ -70,7 +70,7 @@ def choose_tournaments(rows, now):
         return []
     # Rota por todas las competiciones con partidos; nunca por popularidad.
     k=min(MAX_LEAGUES_PER_SCAN, len(eligible))
-    index=(now.date().toordinal() * 7) % len(eligible)
+    index=now.date().toordinal() % len(eligible)
     return [eligible[(index+i) % len(eligible)] for i in range(k)]
 
 def join_results(per_book):
