@@ -31,10 +31,12 @@ test('Telegram user selects bookmakers and only receives matching alerts',async(
   assert.equal((await worker.fetch(req(17,'/start'),env)).status,200);
   assert.ok(!kv.values.has('subscriber:17'));
   assert.ok(delivered.at(-1).body.reply_markup);
+  await worker.fetch(cb(17,'books:toggle:bet365.es'),env);
+  await worker.fetch(cb(17,'books:toggle:winamax.es'),env);
   assert.equal((await worker.fetch(cb(17,'books:save'),env)).status,200);
   assert.ok(kv.values.has('subscriber:17'));
   await worker.fetch(req(18,'/start'),env);
-  await worker.fetch(cb(18,'books:toggle:winamax.es'),env);
+  await worker.fetch(cb(18,'books:toggle:bet365.es'),env);
   await worker.fetch(cb(18,'books:save'),env);
   const sent=await (await worker.fetch(broadcast('1x2:choice001'),env)).json();
   assert.equal(sent.sent,1);assert.equal(sent.subscribers,2);
