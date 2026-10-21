@@ -40,7 +40,7 @@ def call(endpoint, params, key, opener=urlopen):
         raw = e.read(2048).decode("utf-8", errors="replace")
         try:
             err = json.loads(raw)
-            diagnostic = " / ".join(str(err.get(field, "")) for field in ("code", "message", "details") if err.get(field))
+            diagnostic = " / ".join(str(err.get(field, "")) for field in ("code", "message", "details", "error", "reason") if err.get(field))
         except (ValueError, AttributeError):
             diagnostic = "Respuesta de error no JSON"
         diagnostic = diagnostic.replace(key, "[REDACTED]")[:300]
