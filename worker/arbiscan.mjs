@@ -2,7 +2,7 @@
 const BRAND = new Map(Object.entries({bet365:'Bet365', sportium:'Sportium',winamax:'Winamax',betfair:'Betfair',bwin:'bwin',codere:'Codere',luckia:'Luckia','william hill':'William Hill',betway:'Betway',retabet:'RETAbet',sportybet:'SportyBet'}));
 const norm=s=>String(s).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const number=s=>{const n=Number(String(s).trim().replace(',','.'));if(!Number.isFinite(n))throw Error('Número o cuota no válidos');return n;};
-const help='ArbiiScan: envía /plantilla para copiar el formato. Las cuotas enviadas NO se verifican. No se realizan apuestas.';
+const help='ArbiiScan busca automáticamente posibles arbitrajes entre Bet365 ES y Winamax ES. /start activa las alertas, /stop las desactiva, /estado consulta tu suscripción. No son apuestas garantizadas: comprueba siempre las cuotas en ambas casas.';
 const template='/comparar\nDeporte: futbol\nPartido: Barcelona vs Real Madrid\nMercado: total goles 2.5 (90 minutos)\nCapital: 100\nBet365 ES | mas | 2.10\nSportium ES | menos | 2.05\n\n⚠️ Precios ficticios de ejemplo. Sustituye las cuotas.';
 function outcomes(market,sport){
   const m=norm(market),s=norm(sport),soccer=s.includes('fut')||s.includes('soccer');
@@ -72,21 +72,88 @@ export function answerText(input){
     return intro+detail+'\n\nBeneficio mínimo TEÓRICO: +'+best.alloc.profit.toFixed(2)+' € ('+best.alloc.roi.toFixed(2)+' %).\nAntes de apostar verifica precios, reglas y límites en las casas. No se han realizado apuestas.';
   }catch(err){return '⚠️ '+err.message+'\nEnvía /plantilla.';}
 }
+const chatKey=id=>'subscriber:'+String(id);
+const json=(obj,status=200)=>new Response(JSON.stringify(obj),{status,headers:{'content-type':'application/json'}});
+async function telegramSend(env,chatId,text){
+  const reply=await fetch('https://api.telegram.org/bot'+env.TELEGRAM_BOT_TOKEN+'/sendMessage',{
+    method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({chat_id:chatId,text:text.slice(0,4000)})
+  });
+  // Do not swallow permanent or temporary delivery failures.
+  return reply;
+}
+async function subscribers(store){
+  const ids=[];let cursor;
+  do{
+    const page=await store.list({prefix:'subscriber:',limit:1000,...(cursor?{cursor}:{})});
+    for(const item of page.keys)ids.push(item.name.slice('subscriber:'.length));
+    cursor=page.list_complete?null:page.cursor;
+  }while(cursor);
+  return ids;
+}
 export default {
   async fetch(request,env){
     const path=new URL(request.url).pathname;
     if(request.method==='GET'&&path==='/health')return new Response('ArbiiScan webhook disponible');
+    if(request.method==='POST'&&path==='/broadcast'){
+      if(!env.WEBHOOK_SECRET||!env.TELEGRAM_BOT_TOKEN||!env.SUBSCRIBERS)
+        return json({error:'Broadcast sin configurar'},503);
+      if(request.headers.get('Authorization')!== 'Bearer '+env.WEBHOOK_SECRET)
+        return json({error:'No autorizado'},403);
+      let data;
+      try{data=await request.json();}catch{return json({error:'JSON inválido'},400);}
+      if(typeof data?.text!=='string'||data.text.length<10||data.text.length>4000||
+         !/^[\w:.-]{4,160}$/.test(String(data?.event_key||'')))
+        return json({error:'Alerta inválida'},400);
+      const ids=await subscribers(env.SUBSCRIBERS);
+      const report={subscribers:ids.length,sent:0,failed:0,duplicate:0};
+      for(const id of ids){
+        const dedup='sent:'+data.event_key+':'+id;
+        if(await env.SUBSCRIBERS.get(dedup)){report.duplicate++;continue;}
+        try{
+          const out=await telegramSend(env,id,data.text);
+          if(out.ok){
+            report.sent++;
+            await env.SUBSCRIBERS.put(dedup,'1',{expirationTtl:86400});
+          }else{
+            report.failed++;
+            // Remove chats that have explicitly blocked the bot (Telegram 403).
+            if(out.status===403)await env.SUBSCRIBERS.delete(chatKey(id));
+          }
+        }catch{report.failed++;}
+      }
+      return json(report,report.failed?502:200);
+    }
     if(request.method!=='POST'||path!=='/telegram')return new Response('Not found',{status:404});
-    if(!env.WEBHOOK_SECRET||!env.TELEGRAM_BOT_TOKEN||!env.TELEGRAM_CHAT_ID)return new Response('Worker sin configurar',{status:503});
+    if(!env.WEBHOOK_SECRET||!env.TELEGRAM_BOT_TOKEN)return new Response('Worker sin configurar',{status:503});
     const secret=request.headers.get('X-Telegram-Bot-Api-Secret-Token');
     if(!secret||secret!==env.WEBHOOK_SECRET)return new Response('Forbidden',{status:403});
     let data;try{data=await request.json();}catch{return new Response('Bad JSON',{status:400});}
     const msg=data.message;
-    if(!msg||msg.chat?.type!=='private'||String(msg.chat.id)!==String(env.TELEGRAM_CHAT_ID))return new Response('OK');
-    const text=answerText(msg.text);if(!text)return new Response('OK');
-    const reply=await fetch('https://api.telegram.org/bot'+env.TELEGRAM_BOT_TOKEN+'/sendMessage',{
-      method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat_id:msg.chat.id,text:text.slice(0,4000)})
-    });
+    if(!msg||msg.chat?.type!=='private'||msg.chat?.id==null)return new Response('OK');
+    const id=String(msg.chat.id);
+    const command=norm(String(msg.text||'').trim().split(/[\s\n]/)[0]).split('@')[0];
+    let text='';
+    if(command==='/start'){
+      if(!env.SUBSCRIBERS) text='El registro automático todavía no está configurado. Vuelve a intentarlo cuando se active el almacenamiento.';
+      else{
+        await env.SUBSCRIBERS.put(chatKey(id),new Date().toISOString());
+        text='✅ ¡Alertas activadas! ArbiiScan te enviará automáticamente posibles arbitrajes cuando el escáner encuentre alguno y las cuotas superen la doble comprobación. No tienes que escribir nada más. Para dejar de recibirlos: /stop. Cuotas pendientes de confirmar en ambas casas.';
+      }
+    }else if(command==='/stop'){
+      if(!env.SUBSCRIBERS) text='El registro automático todavía no está configurado.';
+      else{
+        await env.SUBSCRIBERS.delete(chatKey(id));
+        text='🔕 Alertas desactivadas. Puedes volver a activarlas enviando /start.';
+      }
+    }else if(command==='/estado'){
+      if(!env.SUBSCRIBERS)text='Servicio de suscripciones todavía no configurado.';
+      else text=(await env.SUBSCRIBERS.get(chatKey(id)))?
+        '✅ Tu suscripción está activa. Recibirás alertas automáticamente cuando haya oportunidades candidatas.':
+        '🔕 No estás suscrito. Envía /start para activar las alertas.';
+    }else{text=answerText(msg.text);}
+    if(!text)return new Response('OK');
+    const reply=await telegramSend(env,id,text);
     if(!reply.ok)return new Response('Telegram send failed',{status:502});
     return new Response('OK');
   }
