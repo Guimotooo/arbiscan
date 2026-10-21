@@ -1,0 +1,19 @@
+name: ArbiiScan - identificar deportes y casas OddsPapi
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'fuentes_es/catalogo.py'
+      - '.github/workflows/catalogo_oddspapi.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Leer catálogo real y proteger créditos gratuitos
+        env:
+          ODDS_PAPI_KEY: ${{ secrets.ODDS_PAPI_KEY }}
+        run: python -m fuentes_es.catalogo
