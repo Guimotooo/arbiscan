@@ -71,7 +71,11 @@ def remaining_quota(account):
     return max(0, limit-used)
 
 def quotes_for_fixture(fixture, now):
-    """Rechaza mercados suspendidos y datos sin actualización reciente del evento.\n\nchangedAt significa CAMBIO de precio, no última observación del proveedor.\nupdatedAt es actualización del evento, una señal imperfecta de vigencia.\n"""
+    """Rechaza mercados suspendidos y datos sin actualización reciente del evento.
+
+changedAt significa CAMBIO de precio, no última observación del proveedor.
+updatedAt es actualización del evento, una señal imperfecta de vigencia.
+"""
     if not isinstance(fixture, dict) or fixture.get("sportId") != 10:
         return None
     if fixture.get("statusId") != 0:
@@ -182,7 +186,8 @@ def source_diagnostics(fixtures, now):
     """Diagnóstico agregado de cobertura; no muestra datos personales ni tokens."""
     counts = {"fixtures": len(fixtures), "two_books": 0,
               "two_active_books": 0, "two_1x2_markets": 0,
-              "two_complete_1x2": 0, "recent_fixture_updates": 0,\n              "old_price_change_dates": 0, "alert_eligible_events": 0}
+              "two_complete_1x2": 0, "recent_fixture_updates": 0,
+              "old_price_change_dates": 0, "alert_eligible_events": 0}
     for fixture in fixtures:
         books = fixture.get("bookmakerOdds") or {}
         if not all(book in books for book in BOOKS):
@@ -216,7 +221,8 @@ def source_diagnostics(fixtures, now):
 def message(opp):
     lines = [
       "ARBIISCAN | POSIBLE ARBITRAJE (NO CONFIRMADO)",
-      opp["event"], "Inicio: " + opp["start"], "Mercado: 1X2 (90 minutos)",\n      "Última actualización registrada del evento: " + opp["provider_event_updated_at"],
+      opp["event"], "Inicio: " + opp["start"], "Mercado: 1X2 (90 minutos)",
+      "Última actualización registrada del evento: " + opp["provider_event_updated_at"],
       "Capital ilustrativo: 100 €",
     ]
     for item in opp["offers"]:
