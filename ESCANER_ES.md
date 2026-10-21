@@ -42,3 +42,12 @@ Implementación actual:
 Última prueba: 14/14 tests correctos; 41 partidos emparejados, 8 partidos con dos mercados 1X2 activos y completos, 0 candidatos matemáticos. La cobertura de mercados varía según el momento y la casa. No se consumieron solicitudes adicionales para reconfirmar candidatos inexistentes.
 
 Documentación de campos: https://oddspapi.io/en/docs/get-odds-by-tournaments y https://oddspapi.io/en/docs/websocket-api
+
+## Activación operativa — 21/10/2026
+
+- Se habilitó cron de GitHub Actions a las **09:15 y 21:15 UTC** (dos controles diarios). La ejecución programada de GitHub puede retrasarse o saltarse; no es un servicio minuto a minuto.
+- Se habilitó el **envío de candidatos matemáticos NO CONFIRMADOS**, exclusivamente cuando dos lecturas consecutivas del mismo proveedor (Bet365 ES y Winamax ES, ambas) conservan exactamente la asignación de casas y las cuotas, separadas por al menos tres segundos.
+- Sin candidato inicial no se gastan los dos créditos de reconfirmación. Cada control inicial consume dos créditos, máximo unos 124 créditos por mes de 31 días sin reconfirmaciones; las reconfirmaciones añaden otros dos por control con candidatos. Se detienen las consultas al acercarse al límite de la cuenta.
+- **No se ha verificado una surebet real** en los cupones de las casas. La reconfirmación de OddsPapi NO certifica recepción actual de datos desde la web ni la posibilidad de apostar. Nunca presentar estas alertas como oportunidades garantizadas.
+- Primera ejecución tras habilitar la agenda: 14/14 tests correctos, 41 partidos, 8 mercados 1X2 completos de ambas casas y 0 candidatos. No se envió mensaje porque no había oportunidades candidatas.
+- Presupuesto pagado: **0 €**.
