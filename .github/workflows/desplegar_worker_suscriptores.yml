@@ -1,6 +1,9 @@
 name: ArbiiScan - desplegar suscripciones Telegram
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/desplegar_worker_suscriptores.yml'
 permissions:
   contents: read
 jobs:
