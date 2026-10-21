@@ -52,3 +52,14 @@ Un navegador Chromium sin cuenta desde GitHub Actions obtuvo **HTTP 403 en bet36
 Se corrigió el validador de direcciones para admitir el fragmento de rutas `#/` de Bet365; esto no evita el bloqueo del servidor. No se habilita ningún bypass técnico de CAPTCHA, acceso restringido o bloqueo HTTP.
 
 Workflow de diagnóstico: `ArbiiScan - comprobar enlaces scraping ES`; workflow de tests: `ArbiiScan - prueba scraping ES`.
+
+## Diagnóstico exhaustivo de acceso — 21/10/2026 (ejecuciones reales)
+
+- Bet365 ES respondió **HTTP 403** desde GitHub Actions en todas las pruebas (navegador público, sin inicio de sesión). Un segundo servicio de lectura de páginas devolvió bloqueo de bot. No se intentan evasiones.
+- Winamax ES respondió HTTP 200 y renderizó más de 18.000 caracteres de texto, con mercados de apuestas. En el texto del evento se encontraron **Real Madrid y RB Leipzig** y selecciones con cuotas como «Over 2.5». Ya no se trata de una página vacía; sin embargo, aún no se han identificado selectores estables para el mercado **1X2 completo** del partido. La prueba no ha validado ninguna comparación entre casas.
+- La ruta del evento Winamax permanece en la URL, pero la coincidencia del nombre y la hora del evento con Bet365 no se puede verificar porque Bet365 no devuelve datos.
+- **Estado:** scraper solo diagnóstico, sin programación recurrente ni envío de alertas. El lector y el comparador tienen tests, pero no han demostrado una extracción integrada de dos webs.
+- **Bloqueo externo:** para tener acceso directo desde GitHub, la entidad que autorizó el uso de Bet365 debe indicar un medio de acceso técnico que responda desde ese entorno (por ejemplo, acceso oficial documentado). Una autorización general de consulta no elimina automáticamente el bloqueo del servidor. No solicitar ni publicar contraseñas, sesiones o tokens personales.
+- Mantener el escáner alternativo de OddsPapi separado si se desea cobertura mientras se valida la fuente directa.
+
+Última ejecución de diagnóstico: https://github.com/Guimotooo/arbiscan/actions/runs/39645736856
