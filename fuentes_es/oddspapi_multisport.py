@@ -29,7 +29,7 @@ SPORTS = (
 MAX_AGE_SECONDS = 7 * 86400
 MAX_LEAGUES_PER_SCAN = 5
 MIN_LEAD_MINUTES = 15
-MAX_ALERTS = 3
+MAX_ALERTS = 30
 MIN_ROI = 0.5
 MIN_CREDITS_FOR_SCAN = 22
 
@@ -137,43 +137,55 @@ def valid_prices(fixture, sport, now):
             result[brand]=clean
     return result
 
-def evaluate_fixture(fixture, sport, now):
+def evaluate_fixture_options(fixture, sport, now):
+    """Mejor arbitraje por cada conjunto de casas usado.
+
+    Permite que usuarios con pares diferentes reciban una alternativa que
+    realmente pueden apostar, sin obligarles a usar la oferta global.
+    """
     quotes=valid_prices(fixture,sport,now)
     labels=list(sport[3].values())
     if len(quotes)<2:
-        return None
-    best=None
+        return []
+    names=[str(fixture.get("participant1Name") or ""),str(fixture.get("participant2Name") or "")]
+    if not all(names) or not fixture.get("fixtureId"):
+        return []
+    best_by_set={}
     for combination in product(list(quotes),repeat=len(labels)):
-        if len(set(combination))<2:
+        brands=frozenset(combination)
+        if len(brands)<2:
             continue
         offers=[{"bookmaker":brand,"bookmaker_key":brand,"outcome":label,
                  "price":quotes[brand][label]} for brand,label in zip(combination,labels)]
         calculation=allocate(100.0, offers)
-        if calculation and calculation["roi_percent"]>=MIN_ROI and (
-            best is None or calculation["profit"]>best["profit"]
-        ):
-            best=calculation
-    if not best:
-        return None
-    names=[str(fixture.get("participant1Name") or ""),str(fixture.get("participant2Name") or "")]
-    if not all(names) or not fixture.get("fixtureId"):
-        return None
-    return {"fixture_id":str(fixture["fixtureId"]), "sport":sport[1],
-            "market":sport[4], "event":names[0]+" vs "+names[1],
-            "start":utc(fixture["startTime"]).isoformat(), **best}
+        if not calculation or calculation["roi_percent"]<MIN_ROI:
+            continue
+        prior=best_by_set.get(brands)
+        if prior is None or calculation["profit"]>prior["profit"]:
+            best_by_set[brands]=calculation
+    return [{
+        "fixture_id":str(fixture["fixtureId"]),"sport":sport[1],
+        "market":sport[4],"event":names[0]+" vs "+names[1],
+        "start":utc(fixture["startTime"]).isoformat(), **calculation
+    } for calculation in best_by_set.values()]
+
+def evaluate_fixture(fixture,sport,now):
+    choices=evaluate_fixture_options(fixture,sport,now)
+    return max(choices,key=lambda x:x["profit"]) if choices else None
 
 def scan(rows,sport,now):
-    found=[evaluate_fixture(row,sport,now) for row in rows]
-    return sorted([f for f in found if f],key=lambda x:x["profit"],reverse=True)
+    found=[]
+    for row in rows:
+        found.extend(evaluate_fixture_options(row,sport,now))
+    return sorted(found,key=lambda x:x["profit"],reverse=True)
 
 def signature(opp):
     return (opp["fixture_id"],opp["sport"],opp["market"],opp["start"],
             tuple((q["bookmaker_key"],q["outcome"],q["price"]) for q in opp["offers"]))
 
 def double_check(first,second,now):
-    by_id={v["fixture_id"]:v for v in second}
-    return [{**v,"observed_at":now.isoformat()} for v in first
-            if v["fixture_id"] in by_id and signature(v)==signature(by_id[v["fixture_id"]])]
+    signatures={signature(value) for value in second}
+    return [{**v,"observed_at":now.isoformat()} for v in first if signature(v) in signatures]
 
 def format_alert(opp):
     out=["ARBIISCAN | POSIBLE ARBITRAJE NO CONFIRMADO",
@@ -235,7 +247,7 @@ def run():
         return
     for item in confirmed[:MAX_ALERTS]:
         books=sorted({v["bookmaker_key"] for v in item["offers"]})
-        event_key="multi:"+hashlib.sha256(repr(signature(item)).encode()).hexdigest()[:24]
+        event_key="multi:"+hashlib.sha256(repr((item["fixture_id"],item["sport"],item["market"],item["start"])).encode()).hexdigest()[:24]
         result=broadcast_alert(worker,secret,format_alert(item),event_key,books)
         print("Difusión:",result)
 
