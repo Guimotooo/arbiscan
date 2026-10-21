@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 def main():
-    from scrapling.fetchers import Fetcher,DynamicFetcher
+    from scraping_es.scrapling_adapter import fetch_public_html
     import os
     from scrapling.parser import Selector
     urls=json.loads(Path("scraping_es/targets.json").read_text(encoding="utf-8"))
@@ -16,9 +16,8 @@ def main():
     print("Comprobación pública: Winamax ES con Scrapling Fetcher normal")
     try:
         mode=os.getenv("SCRAPLING_PROBE_MODE","http")
-        result=DynamicFetcher.fetch(url,network_idle=False) if mode=="dynamic" else Fetcher.get(url)
-        status=int(getattr(result,"status",0) or 0)
-        html=result.body
+        html=fetch_public_html("winamax.es",url,mode=mode)
+        status=200
         page=Selector(content=html)
         extracted=" ".join(str(page.get_all_text() or "").split())
         print("Código HTTP:",status)
