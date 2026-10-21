@@ -42,7 +42,8 @@ def api(endpoint, params, key, opener=urlopen):
         with opener(req, timeout=30) as response:
             return json.load(response)
     except HTTPError as exc:
-        raise RuntimeError("OddsPapi HTTP " + str(exc.code) + " en " + endpoint) from None
+        reason=exc.read(700).decode("utf-8",errors="replace").replace(key,"[REDACTED]")
+        raise RuntimeError("OddsPapi HTTP " + str(exc.code) + " en " + endpoint + " · " + reason[:380]) from None
     except URLError:
         raise RuntimeError("Error de conexión a OddsPapi") from None
 
