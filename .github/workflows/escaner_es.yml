@@ -1,0 +1,26 @@
+name: ArbiiScan - escaner Bet365 ES y Winamax ES
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 1,7,13,19 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: arbi-oddspapi
+  cancel-in-progress: false
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar seguridad de cuotas españolas
+        run: python -m unittest -v test_oddspapi.py
+      - name: Consultar API y calcular candidatos
+        env:
+          ODDS_PAPI_KEY: ${{ secrets.ODDS_PAPI_KEY }}
+          ODDSPAPI_ENABLE_ALERTS: ${{ vars.ODDSPAPI_ENABLE_ALERTS }}
+          ODDSPAPI_TOURNAMENT_IDS: ${{ vars.ODDSPAPI_TOURNAMENT_IDS }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m fuentes_es.oddspapi
