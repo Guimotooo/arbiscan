@@ -34,7 +34,7 @@ def request_api(url, payload=None):
                 # Never disclose the bot token or webhook secret in logs.
                 description = description.replace(os.getenv("TELEGRAM_BOT_TOKEN", ""), "[REDACTED]")
                 description = description.replace(os.getenv("WEBHOOK_SECRET", ""), "[REDACTED]")
-                description = re.sub(r"\\b\\d{6,12}:[A-Za-z0-9_-]{20,}\\b", "[REDACTED]", description)
+                description = re.sub(r"\b\d{6,12}:[A-Za-z0-9_-]{20,}\b", "[REDACTED]", description)
                 raise RuntimeError("Telegram HTTP 400: " + description[:350])
             except (ValueError, UnicodeError):
                 raise RuntimeError("Telegram HTTP 400: respuesta no válida") from None
@@ -70,15 +70,15 @@ def resolve_and_validate_ip(hostname):
             with socket.create_connection((ip, 443), timeout=8) as sock:
                 with ssl.create_default_context().wrap_socket(sock, server_hostname=hostname) as tls:
                     tls.settimeout(8)
-                    tls.sendall(("GET /health HTTP/1.1\\r\\nHost: " + hostname +
-                                 "\\r\\nConnection: close\\r\\n\\r\\n").encode("ascii"))
+                    tls.sendall(("GET /health HTTP/1.1\r\nHost: " + hostname +
+                                 "\r\nConnection: close\r\n\r\n").encode("ascii"))
                     data = b""
                     while len(data) < 4096:
                         part = tls.recv(4096)
                         if not part:
                             break
                         data += part
-                    if b"ArbiiScan webhook disponible" in data and b"200" in data.split(b"\\r\\n", 1)[0]:
+                    if b"ArbiiScan webhook disponible" in data and b"200" in data.split(b"\r\n", 1)[0]:
                         return ip
         except (OSError, ssl.SSLError):
             continue
