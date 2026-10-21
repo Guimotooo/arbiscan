@@ -25,7 +25,7 @@ test('Telegram user selects bookmakers and only receives matching alerts',async(
  const previous=globalThis.fetch,delivered=[];
  globalThis.fetch=async(url,init)=>{delivered.push({url,body:JSON.parse(init.body)});return new Response('{"ok":true}',{status:200});};
  const req=(id,text)=>new Request('https://arbiscan.test/telegram',{method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':'testsecret','content-type':'application/json'},body:JSON.stringify({message:{text,chat:{type:'private',id}}})});
- const cb=(id,data)=>new Request('https://arbiscan.test/telegram',{method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':'testsecret','content-type':'application/json'},body:JSON.stringify({callback_query:{id:'cb1',data,message:{chat:{id,type:'private'}}}})});
+ const cb=(id,data)=>new Request('https://arbiscan.test/telegram',{method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':'testsecret','content-type':'application/json'},body:JSON.stringify({callback_query:{id:'cb1',from:{id},data,message:{chat:{id,type:'private'}}}})});
  const broadcast=(key)=>new Request('https://arbiscan.test/broadcast',{method:'POST',headers:{Authorization:'Bearer testsecret','content-type':'application/json'},body:JSON.stringify({event_key:key,text:'Posible arbitraje no confirmado: partido de prueba',books:['bet365.es','winamax.es']})});
  try{
   assert.equal((await worker.fetch(req(17,'/start'),env)).status,200);
