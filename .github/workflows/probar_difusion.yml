@@ -1,0 +1,44 @@
+name: ArbiiScan - comprobar difusion autenticada sin notificar
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/probar_difusion.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar autenticacion sin publicar ninguna alerta
+        env:
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          ARBI_WORKER_URL: https://arbiscan.dame-un-like-porfavor.workers.dev
+        run: |
+          python - <<'PY'
+          import os,json
+          from datetime import datetime,timezone
+          from urllib.request import Request,urlopen
+          from urllib.error import HTTPError
+          from fuentes_es.oddspapi_multisport import subscriber_demand,book_selection
+          secret=os.environ["WEBHOOK_SECRET"].strip()
+          assert secret
+          demand=subscriber_demand(os.environ["ARBI_WORKER_URL"],secret)
+          print("Demanda de parejas validada:",len(demand))
+          print("Casas de una ronda:",book_selection(datetime.now(timezone.utc),demand))
+          url=os.environ["ARBI_WORKER_URL"].rstrip("/")+"/broadcast"
+          # Siempre inválida: rechazada antes de acceder a suscriptores o enviar mensajes.
+          payload=json.dumps({"event_key":"x","text":"x","books":[]}).encode("utf-8")
+          req=Request(url,data=payload,method="POST",headers={
+             "Authorization":"Bearer "+secret,
+             "Content-Type":"application/json","User-Agent":"curl/8.5.0"})
+          try:
+              urlopen(req,timeout=15)
+              raise SystemExit("ERROR: petición inválida fue aceptada")
+          except HTTPError as e:
+              body=e.read(300).decode("utf-8","replace")
+              assert e.code==400 and "inválida" in body, (e.code,body)
+              print("Difusión autorizada y validación de contenido: OK (sin avisar a nadie)")
+          PY
