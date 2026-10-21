@@ -200,7 +200,8 @@ def run():
         return
     params={"tournamentIds":",".join(str(i) for i in ids),"language":"es","verbosity":3}
     first={}
-    for brand in BOOKS:
+    for index,brand in enumerate(BOOKS):
+        if index: time.sleep(2.5)
         first[brand]=api("odds-by-tournaments",{**params,"bookmaker":brand},key)
     data=join_results(first)
     print("Partidos emparejados:",len(data))
@@ -214,7 +215,8 @@ def run():
         return
     time.sleep(3)
     second={}
-    for brand in BOOKS:
+    for index,brand in enumerate(BOOKS):
+        if index: time.sleep(2.5)
         second[brand]=api("odds-by-tournaments",{**params,"bookmaker":brand},key)
     confirmed=double_check(candidates,scan(join_results(second),sport,datetime.now(timezone.utc)),datetime.now(timezone.utc))
     print("Candidatos coincidentes en dos lecturas:",len(confirmed))
