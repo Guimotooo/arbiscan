@@ -1,11 +1,8 @@
-name: ArbiiScan - pruebas escaner multi-deporte
+name: ArbiiScan - escaner ES multidporte automatico
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'fuentes_es/oddspapi_multisport.py'
-      - 'test_oddspapi_multisport.py'
-      - '.github/workflows/escaner_multisport.yml'
+  schedule:
+    - cron: '15 18 * * *'
 permissions:
   contents: read
 concurrency:
@@ -22,7 +19,7 @@ jobs:
       - name: Evaluar proveedor real con la cuota gratuita
         env:
           ODDS_PAPI_KEY: ${{ secrets.ODDS_PAPI_KEY }}
-          ODDSPAPI_ENABLE_ALERTS: 'false'
+          ODDSPAPI_ENABLE_ALERTS: 'true'
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
           ARBI_WORKER_URL: https://arbiscan.dame-un-like-porfavor.workers.dev
         run: python -m fuentes_es.oddspapi_multisport
