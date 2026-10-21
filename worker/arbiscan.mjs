@@ -149,9 +149,11 @@ export default {
     if(cb){
       const id=String(cb.message?.chat?.id||'');
       const key=String(cb.data||'');
-      if(!id||cb.message?.chat?.type!=='private'||!key.startsWith('books:'))return new Response('OK');
+      if(!id||cb.message?.chat?.type!=='private'||String(cb.from?.id)!==id||!key.startsWith('books:'))return new Response('OK');
       if(!env.SUBSCRIBERS)return new Response('Worker sin KV',{status:503});
-      let selected=readBooks(await env.SUBSCRIBERS.get(pendingKey(id)));
+      const pending=await env.SUBSCRIBERS.get(pendingKey(id));
+      if(!pending){await telegramSend(env,id,'Esta selección ha caducado. Envía /casas para empezar de nuevo.');return new Response('OK');}
+      let selected=readBooks(pending);
       if(key.startsWith('books:toggle:')){
         const brand=key.slice('books:toggle:'.length);
         if(Object.hasOwn(AVAILABLE_BOOKS,brand)){
