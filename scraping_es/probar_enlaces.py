@@ -47,7 +47,7 @@ def main():
                         }
                         print("Winamax match rendering:", json.dumps(selectors, ensure_ascii=False))
                         print("Winamax page tail:", json.dumps(" ".join(text.split())[-800:], ensure_ascii=False))
-                        excerpt=text[11000:15000]
+                        excerpt=text[15000:17500]
                         print("Winamax content section:", json.dumps(" ".join(excerpt.split())[:1500],ensure_ascii=False))
                         headings=page.locator("h1,h2,h3").all_inner_texts()
                         print("Winamax headings:",json.dumps(headings[:25],ensure_ascii=False)[:1100])
