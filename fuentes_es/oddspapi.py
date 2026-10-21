@@ -15,7 +15,7 @@ BASE = "https://api.oddspapi.io/v4"
 BOOKS = ("bet365.es", "winamax.es")
 OUTCOMES = {"101": "1", "102": "X", "103": "2"}
 MARKET_ID = "101"  # 1X2 fulltime fútbol (OddsPapi /v4/markets)
-MAX_AGE_SECONDS = 300
+MAX_FIXTURE_UPDATE_AGE_SECONDS = 3600\nMAX_PRICE_CHANGE_AGE_SECONDS = 7 * 86400
 MIN_LEAD_MINUTES = 15
 MAX_RUN_CANDIDATES = 3
 
@@ -70,7 +70,7 @@ def remaining_quota(account):
     return max(0, limit-used)
 
 def quotes_for_fixture(fixture, now):
-    """Rechaza datos ambiguos, datos viejos, eventos iniciados y cuotas suspendidas."""
+    """Rechaza mercados suspendidos y datos sin actualización reciente del evento.\n\nchangedAt significa CAMBIO de precio, no última observación del proveedor.\nupdatedAt es actualización del evento, una señal imperfecta de vigencia.\n"""
     if not isinstance(fixture, dict) or fixture.get("sportId") != 10:
         return None
     if fixture.get("statusId") != 0:
@@ -101,7 +101,7 @@ def quotes_for_fixture(fixture, now):
             if not isinstance(player, dict) or player.get("active") is not True:
                 continue
             dt = utc(player.get("changedAt"))
-            if not dt or not (0 <= (now-dt).total_seconds() <= MAX_AGE_SECONDS):
+            if not dt or not (0 <= (now-dt).total_seconds() <= MAX_PRICE_CHANGE_AGE_SECONDS):
                 continue
             try:
                 price = float(player["price"])
@@ -181,7 +181,7 @@ def source_diagnostics(fixtures, now):
     """Diagnóstico agregado de cobertura; no muestra datos personales ni tokens."""
     counts = {"fixtures": len(fixtures), "two_books": 0,
               "two_active_books": 0, "two_1x2_markets": 0,
-              "two_complete_fresh_1x2": 0}
+              "two_complete_1x2": 0, "recent_fixture_updates": 0,\n              "old_price_change_dates": 0, "alert_eligible_events": 0}
     for fixture in fixtures:
         books = fixture.get("bookmakerOdds") or {}
         if not all(book in books for book in BOOKS):
@@ -215,7 +215,7 @@ def source_diagnostics(fixtures, now):
 def message(opp):
     lines = [
       "ARBIISCAN | POSIBLE ARBITRAJE (NO CONFIRMADO)",
-      opp["event"], "Inicio: " + opp["start"], "Mercado: 1X2 (90 minutos)",
+      opp["event"], "Inicio: " + opp["start"], "Mercado: 1X2 (90 minutos)",\n      "Última actualización registrada del evento: " + opp["provider_event_updated_at"],
       "Capital ilustrativo: 100 €",
     ]
     for item in opp["offers"]:
