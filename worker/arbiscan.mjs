@@ -109,7 +109,7 @@ export default {
     if(request.method==='GET'&&path==='/health')return new Response('ArbiiScan webhook disponible');
     if(request.method==='GET'&&path==='/scan-preferences'){
       if(!env.BROADCAST_SECRET||!env.SUBSCRIBERS)return json({error:'KV sin configurar'},503);
-      if(request.headers.get('Authorization')!=='Bearer '+env.BROADCAST_SECRET)
+      if(request.headers.get('Authorization')!=='Bearer '+String(env.BROADCAST_SECRET).trim())
         return json({error:'No autorizado'},403);
       const ids=await subscribers(env.SUBSCRIBERS),pairs={};
       for(const id of ids){
@@ -125,7 +125,7 @@ export default {
     if(request.method==='POST'&&path==='/broadcast'){
       if(!env.BROADCAST_SECRET||!env.TELEGRAM_BOT_TOKEN||!env.SUBSCRIBERS)
         return json({error:'Broadcast sin configurar'},503);
-      if(request.headers.get('Authorization')!== 'Bearer '+env.BROADCAST_SECRET)
+      if(request.headers.get('Authorization')!== 'Bearer '+String(env.BROADCAST_SECRET).trim())
         return json({error:'No autorizado'},403);
       let data;
       try{data=await request.json();}catch{return json({error:'JSON inválido'},400);}
