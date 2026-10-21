@@ -34,7 +34,11 @@ def main():
                     except (BrowserTimeout,Exception):
                         size=0
                         blocked=False
-                    if brand == "winamax.es" and code == 200 and size:\n                        clean=" ".join(text.split())\n                        print("Winamax public page excerpt:", json.dumps(clean[:450], ensure_ascii=False))\n                        print("Winamax decimal-like values:", len(re.findall(r"(?<!\\d)\\d{1,2}[,.]\\d{2}(?!\\d)", clean)))\n                    print(json.dumps({"bookmaker":brand,"http_status":code,
+                    if brand == "winamax.es" and code == 200 and size:
+                        clean=" ".join(text.split())
+                        print("Winamax public page excerpt:", json.dumps(clean[:450], ensure_ascii=False))
+                        print("Winamax decimal-like values:", len(re.findall(r"(?<!\\d)\\d{1,2}[,.]\\d{2}(?!\\d)", clean)))
+                    print(json.dumps({"bookmaker":brand,"http_status":code,
                           "stayed_on_official_domain":actual_host in ALLOWED_HOSTS[brand],
                           "rendered_text_length":size,"has_access_challenge_text":blocked,
                           "document_title_available":bool(page.title())},ensure_ascii=False))
