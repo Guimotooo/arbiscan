@@ -32,6 +32,9 @@ class Tests(unittest.TestCase):
         good={name:{"url":"https://"+name+"/match","market":"1X2_90_MIN","selectors":selectors}
               for name in ("bet365.es","winamax.es")}
         self.assertEqual(validate_config(good),good)
+        fragment=deepcopy(good)
+        fragment["bet365.es"]["url"]="https://www.bet365.es/#/AC/B1/C1/D8/E202645795/F3/I1/P30024/H1/"
+        self.assertEqual(validate_config(fragment),fragment)
         bad=deepcopy(good)
         bad["bet365.es"]["url"]="https://evil.example/path"
         with self.assertRaises(ValueError):validate_config(bad)
