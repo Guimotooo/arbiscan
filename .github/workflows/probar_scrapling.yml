@@ -1,0 +1,22 @@
+name: ArbiiScan - probar Scrapling seguro
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scraping_es/scrapling_adapter.py'
+      - 'test_scrapling_es.py'
+      - '.github/workflows/probar_scrapling.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar motor Scrapling sin navegadores ni evasion
+        run: python -m pip install 'scrapling[fetchers]'
+      - name: Probar parseo y fail-closed sin consultar casas reales
+        run: python -m unittest -v test_scrapling_es.py
+      - name: Ejecutar ejemplo sin selectores verificados
+        run: python -m scraping_es.scrapling_adapter
