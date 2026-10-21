@@ -41,7 +41,7 @@ def validate_config(raw):
         if not isinstance(cfg, dict):
             raise ValueError("Configuración inválida")
         parts = urlsplit(str(cfg.get("url", "")))
-        if parts.scheme != "https" or parts.hostname not in ALLOWED_HOSTS[brand] or parts.username or parts.password or parts.port or parts.fragment:
+        if parts.scheme != "https" or parts.hostname not in ALLOWED_HOSTS[brand] or parts.username or parts.password or parts.port or (parts.fragment and brand != "bet365.es"):
             raise ValueError("Se requiere una URL pública HTTPS del dominio oficial " + brand)
         if cfg.get("market") != MARKET:
             raise ValueError("Mercado incompatible: usar 1X2_90_MIN")
