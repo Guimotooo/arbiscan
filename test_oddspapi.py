@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timedelta, timezone
-from fuentes_es.oddspapi import quotes_for_fixture,scan,remaining_quota,call
+from fuentes_es.oddspapi import quotes_for_fixture,scan,remaining_quota,call,merge_bookmaker_fixtures
 
 NOW=datetime(2026,10,21,16,0,tzinfo=timezone.utc)
 def fixture(draw_price=3.8, status=0, changed=None):
@@ -47,6 +47,21 @@ class TestOddspapi(unittest.TestCase):
         self.assertEqual(remaining_quota({"current_subscription_id":"a","subscriptions":[sub]}),10)
         sub["bookmakers"]={"bet365.es":{}}
         self.assertEqual(remaining_quota({"current_subscription_id":"a","subscriptions":[sub]}),0)
+    def test_merge_two_bookmakers_exact_fixture(self):
+        f=fixture()
+        left={**f,"bookmakerOdds":{"bet365.es":f["bookmakerOdds"]["bet365.es"]}}
+        right={**f,"bookmakerOdds":{"winamax.es":f["bookmakerOdds"]["winamax.es"]}}
+        merged=merge_bookmaker_fixtures({"bet365.es":[left],"winamax.es":[right]})
+        self.assertEqual(len(merged),1)
+        self.assertEqual(len(merged[0]["bookmakerOdds"]),2)
+        self.assertIsNotNone(quotes_for_fixture(merged[0],NOW))
+    def test_reject_conflicting_fixture(self):
+        f=fixture()
+        left={**f,"bookmakerOdds":{"bet365.es":f["bookmakerOdds"]["bet365.es"]}}
+        right={**f,"startTime":(NOW+timedelta(days=1)).isoformat(),
+              "bookmakerOdds":{"winamax.es":f["bookmakerOdds"]["winamax.es"]}}
+        with self.assertRaises(ValueError):
+            merge_bookmaker_fixtures({"bet365.es":[left],"winamax.es":[right]})
     def test_cannot_call_arbitrary_endpoint(self):
         with self.assertRaises(ValueError):
             call("account/refresh-api-key",{},"key")
