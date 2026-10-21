@@ -31,7 +31,7 @@ def run():
             relevant=[r for r in rows if any(n in str(r.get("slug","")).lower() for n in ("soccer","football","basketball","tennis","american"))]
             print("Deportes:",[(r.get("sportId"),r.get("slug"),r.get("sportName")) for r in relevant])
         elif endpoint=="markets":
-            relevant=[r for r in rows if r.get("sportId") in (10,11,12) and str(r.get("marketType","")).lower() in ("1x2","moneyline","winner","match_winner")]
+            relevant=[r for r in rows if r.get("sportId") in (10,11,12,14) and str(r.get("marketType","")).lower() in ("1x2","moneyline","winner","match_winner")]
             print("Mercados de ganador 1X2/2 vías:",[(r.get("sportId"),r.get("marketId"),r.get("marketType"),r.get("period"), [(o.get("outcomeId"),o.get("outcomeName")) for o in r.get("outcomes",[])]) for r in relevant[:30]])
         else:
             relevant=[r for r in rows if any(x in str(r).lower() for x in ("bet365.es","winamax.es","sportium.es","codere.es","bwin.es","betfair.es"))]
