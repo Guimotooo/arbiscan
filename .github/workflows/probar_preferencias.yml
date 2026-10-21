@@ -18,13 +18,18 @@ jobs:
           python - <<'PY'
           import os,json
           from urllib.request import Request,urlopen
+          from urllib.error import HTTPError
           secret=os.environ.get("WEBHOOK_SECRET","")
           if not secret:
               raise SystemExit("Falta WEBHOOK_SECRET")
           url="https://arbiscan.dame-un-like-porfavor.workers.dev/scan-preferences"
           request=Request(url,headers={"Authorization":"Bearer "+secret})
-          with urlopen(request,timeout=15) as r:
-              data=json.load(r)
+          try:
+              with urlopen(request,timeout=15) as r:
+                  data=json.load(r)
+          except HTTPError as e:
+              print("Respuesta de autenticación:",e.code,e.read(250).decode("utf-8","replace"))
+              raise
           assert isinstance(data.get("subscriber_count"),int)
           assert isinstance(data.get("pairs"),dict)
           print("Prefencias autenticadas disponibles: OK")
