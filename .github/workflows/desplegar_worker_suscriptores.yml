@@ -10,7 +10,6 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-      ARBI_KV_NAMESPACE_ID: ${{ vars.ARBI_KV_NAMESPACE_ID }}
     steps:
       - uses: actions/checkout@v4
       - name: Verificar configuración requerida sin revelar secretos
@@ -18,11 +17,6 @@ jobs:
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || { echo "Falta secret CLOUDFLARE_API_TOKEN"; exit 1; }
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Falta variable CLOUDFLARE_ACCOUNT_ID"; exit 1; }
-          [[ "$ARBI_KV_NAMESPACE_ID" =~ ^[0-9a-fA-F]{32}$ ]] || { echo "Falta variable ARBI_KV_NAMESPACE_ID o formato inválido"; exit 1; }
-      - name: Preparar binding de suscriptores
-        shell: bash
-        run: |
-          printf '\n[[kv_namespaces]]\nbinding = "SUBSCRIBERS"\nid = "%s"\n' "$ARBI_KV_NAMESPACE_ID" >> worker/wrangler.toml
       - name: Desplegar Worker preservando variables y secretos
         run: npx --yes wrangler@4 deploy --config worker/wrangler.toml --keep-vars
       - name: Comprobar Worker en producción
