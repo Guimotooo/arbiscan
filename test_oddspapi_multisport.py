@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime,timezone,timedelta
 from fuentes_es.oddspapi_multisport import (
     SPORTS,BOOKS,choose_sport,choose_tournaments,valid_prices,evaluate_fixture,
-    join_results,scan,double_check,signature
+    join_results,scan,double_check,signature,evaluate_fixture_options
 )
 NOW=datetime(2026,10,21,17,tzinfo=timezone.utc)
 
@@ -59,6 +59,13 @@ class Tests(unittest.TestCase):
         f=fixture(SPORTS[1])
         for v in f["bookmakerOdds"].values():v["suspended"]=True
         self.assertIsNone(evaluate_fixture(f,SPORTS[1],NOW))
+    def test_multiple_bookmaker_pairs_per_event(self):
+        choices=evaluate_fixture_options(fixture(SPORTS[2]),SPORTS[2],NOW)
+        sets={frozenset(v["bookmaker_key"] for v in item["offers"]) for item in choices}
+        self.assertIn(frozenset(("bet365.es","winamax.es")),sets)
+        self.assertIn(frozenset(("bet365.es","betfair.es")),sets)
+        confirmed=double_check(choices,choices,NOW)
+        self.assertEqual(len(confirmed),len(choices))
     def test_merge(self):
         f=fixture(SPORTS[2])
         feeds={b:[{**f,"bookmakerOdds":{b:f["bookmakerOdds"][b]}}] for b in BOOKS}
