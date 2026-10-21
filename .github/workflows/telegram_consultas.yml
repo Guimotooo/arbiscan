@@ -1,0 +1,31 @@
+name: ArbiiScan - consultas Telegram
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/telegram_consultas.yml'
+  schedule:
+    - cron: '*/15 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: arbi-consultas
+  cancel-in-progress: false
+jobs:
+  consultas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verificar cálculos
+        run: python -m unittest -v test_telegram_consultas.py
+      - name: Leer comandos y responder
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python telegram_consultas.py
