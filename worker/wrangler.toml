@@ -6,3 +6,7 @@ keep_vars = true
 
 [vars]
 TELEGRAM_CHAT_ID = "5282472188"
+
+[[kv_namespaces]]
+binding = "SUBSCRIBERS"
+id = "282dc81d218546eda32445d538b4dcd5"
