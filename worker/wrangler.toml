@@ -2,6 +2,7 @@ name = "arbiscan"
 main = "arbiscan.mjs"
 compatibility_date = "2026-10-21"
 workers_dev = true
+keep_vars = true
 
 [vars]
 TELEGRAM_CHAT_ID = "5282472188"
