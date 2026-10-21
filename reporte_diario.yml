@@ -1,0 +1,24 @@
+name: ArbiiScan - reporte gratuito
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 8 * * *' # 08:23 UTC, a diario
+permissions:
+  contents: read
+jobs:
+  reporte:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Ejecutar escaneo limitado y enviar a Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python alerta_diaria.py
