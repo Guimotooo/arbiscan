@@ -37,7 +37,14 @@ def call(endpoint, params, key, opener=urlopen):
         with opener(req, timeout=25) as response:
             return json.load(response)
     except HTTPError as e:
-        raise RuntimeError("OddsPapi: HTTP " + str(e.code)) from None
+        raw = e.read(2048).decode("utf-8", errors="replace")
+        try:
+            err = json.loads(raw)
+            diagnostic = " / ".join(str(err.get(field, "")) for field in ("code", "message", "details") if err.get(field))
+        except (ValueError, AttributeError):
+            diagnostic = "Respuesta de error no JSON"
+        diagnostic = diagnostic.replace(key, "[REDACTED]")[:300]
+        raise RuntimeError("OddsPapi: HTTP " + str(e.code) + " · " + diagnostic) from None
     except URLError:
         raise RuntimeError("OddsPapi: sin conexión") from None
 
@@ -66,7 +73,7 @@ def quotes_for_fixture(fixture, now):
     """Rechaza datos ambiguos, datos viejos, eventos iniciados y cuotas suspendidas."""
     if not isinstance(fixture, dict) or fixture.get("sportId") != 10:
         return None
-    if fixture.get("statusId") not in (0, 1):
+    if fixture.get("statusId") != 0:
         return None
     kickoff = utc(fixture.get("startTime"))
     if not kickoff or kickoff <= now + timedelta(minutes=MIN_LEAD_MINUTES):
