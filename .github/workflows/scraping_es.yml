@@ -1,0 +1,32 @@
+name: ArbiiScan - prueba scraping ES
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scraping_es/**'
+      - 'test_scraping_es.py'
+      - '.github/workflows/scraping_es.yml'
+permissions:
+  contents: read
+concurrency:
+  group: arbi-scraping-es
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probar parser y correspondencia de mercados
+        run: python -m unittest -v test_scraping_es.py
+      - name: Comprobar configuración
+        run: |
+          if [ ! -f scraping_es/config.json ]; then
+            echo "No hay URLs y selectores verificados: scraper todavía NO consulta sitios reales."
+          else
+            python -m pip install playwright
+            python -m playwright install --with-deps chromium
+            python -m scraping_es.browser_scan
+          fi
+        env:
+          SCRAPING_ENABLE_ALERTS: 'false'
