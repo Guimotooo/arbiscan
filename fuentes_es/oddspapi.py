@@ -266,6 +266,22 @@ def message(opp):
               "Fuente: OddsPapi (bet365.es y winamax.es). No se ha apostado."]
     return "\n".join(lines)
 
+def broadcast_alert(worker_url, shared_secret, text, event_key, opener=urlopen):
+    """Entrega la alerta al webhook propio; no expone el token de Telegram a OddsPapi."""
+    if not worker_url.startswith("https://") or not worker_url.endswith(".workers.dev"):
+        raise ValueError("URL de Worker inválida")
+    if not shared_secret:
+        raise ValueError("Falta WEBHOOK_SECRET para publicar")
+    payload = json.dumps({"event_key":event_key,"text":text},ensure_ascii=False).encode("utf-8")
+    request = Request(worker_url.rstrip("/")+"/broadcast",data=payload,method="POST",
+                      headers={"Authorization":"Bearer "+shared_secret,
+                               "Content-Type":"application/json"})
+    with opener(request,timeout=35) as response:
+        report=json.load(response)
+    if not isinstance(report,dict) or report.get("failed",0)>0:
+        raise RuntimeError("Broadcast: algunos envíos fallaron")
+    return report
+
 def run():
     key = os.getenv("ODDS_PAPI_KEY", "").strip()
     if not key:
@@ -309,13 +325,19 @@ def run():
     if os.getenv("ODDSPAPI_ENABLE_ALERTS") != "true":
         print("DRY RUN: no se envían alertas; las lecturas repetidas NO certifican vigencia en la web.")
         return
-    token = os.getenv("TELEGRAM_BOT_TOKEN","").strip()
-    chat = os.getenv("TELEGRAM_CHAT_ID","").strip()
-    if not token or not chat:
-        raise ValueError("Faltan secretos de Telegram")
+    worker_url = os.getenv("ARBI_WORKER_URL", "").strip()
+    shared_secret = os.getenv("WEBHOOK_SECRET", "").strip()
+    if not worker_url or not shared_secret:
+        print("Difusión multicliente pendiente de configuración: no se envía ninguna alerta.")
+        return
     for opp in confirmed[:MAX_RUN_CANDIDATES]:
-        send_telegram(token, chat, message(opp))
-    print("Candidatos notificados:", min(MAX_RUN_CANDIDATES,len(confirmed)))
+        # Stable key per event and precise selection. One event is not repeatedly sent
+        # to the same subscriber within a day if odds remain unchanged.
+        import hashlib
+        signature=repr(selected_signature(opp)).encode("utf-8")
+        event_key="1x2:"+hashlib.sha256(signature).hexdigest()[:24]
+        report=broadcast_alert(worker_url,shared_secret,message(opp),event_key)
+        print("Alerta distribuida:",report)
 
 if __name__ == "__main__":
     run()
