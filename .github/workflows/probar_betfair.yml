@@ -1,6 +1,11 @@
 name: ArbiiScan - probar conector Betfair (sin alertas)
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'fuentes_es/**'
+      - 'test_fuentes_es.py'
+      - '.github/workflows/probar_betfair.yml'
 permissions:
   contents: read
 jobs:
