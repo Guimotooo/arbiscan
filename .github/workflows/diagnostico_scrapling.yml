@@ -15,5 +15,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Instalar Scrapling
         run: python -m pip install 'scrapling[fetchers]'
-      - name: Consultar una vez Winamax publico sin tecnicas anti-bloqueo
+      - name: Instalar navegador Chromium para JS
+        run: python -m playwright install --with-deps chromium
+      - name: Consultar Winamax con navegador dinamico Scrapling sin evasion
+        env:
+          SCRAPLING_PROBE_MODE: dynamic
         run: python -m scraping_es.scrapling_probe
