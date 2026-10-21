@@ -1,8 +1,6 @@
 name: ArbiiScan - escaner Bet365 ES y Winamax ES
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '15 9,21 * * *'
   push:
     paths:
       - 'fuentes_es/oddspapi.py'
