@@ -1,0 +1,23 @@
+name: ArbiiScan - activar webhook Cloudflare
+on:
+  workflow_dispatch:
+    inputs:
+      worker_url:
+        description: "URL pública de Cloudflare Worker, https://arbiscan.subdominio.workers.dev"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  activar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+      - name: Activar y verificar webhook con Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          WORKER_URL: ${{ inputs.worker_url }}
+        run: python scripts/activar_webhook.py
