@@ -18,9 +18,15 @@ def request_api(url, payload=None):
         with urlopen(Request(url, data=data, headers=headers), timeout=20) as res:
             body = res.read(100000)
         return json.loads(body)
-    except (HTTPError, URLError, ValueError) as exc:
-        # Avoid exposing a request URL containing Telegram's secret bot token.
-        raise RuntimeError("No se pudo consultar Telegram/Cloudflare; revisa el despliegue y los secretos.") from None
+    except HTTPError as exc:
+        # Do not print the request URL: Telegram embeds the bot token in it.
+        if exc.code == 401:
+            raise RuntimeError("Telegram devuelve HTTP 401 (token no autorizado). Actualiza TELEGRAM_BOT_TOKEN en GitHub con el token nuevo.") from None
+        if exc.code == 403:
+            raise RuntimeError("Telegram devuelve HTTP 403 (acceso prohibido). Revisar si Telegram bloquea esta solicitud o si hay una restricción de red.") from None
+        raise RuntimeError(f"Telegram devuelve HTTP {exc.code} al registrar el webhook. Revisa el estado de la API.") from None
+    except (URLError, ValueError):
+        raise RuntimeError("No se pudo contactar con Telegram o interpretar su respuesta.") from None
 
 
 def main():
