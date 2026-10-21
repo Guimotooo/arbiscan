@@ -77,7 +77,7 @@ const pendingKey=id=>'pending:'+String(id);
 function readBooks(value){
  if(!value)return [];
  try{const data=JSON.parse(value);return Array.isArray(data.books)?[...new Set(data.books.filter(b=>Object.hasOwn(AVAILABLE_BOOKS,b)))]:[];}
- catch{return Object.keys(AVAILABLE_BOOKS);}
+ catch{return ['bet365.es','winamax.es'];}
 }
 function selectionMarkup(books){return {inline_keyboard:[
  ...Object.entries(AVAILABLE_BOOKS).map(([key,label])=>[{text:(books.includes(key)?'✅ ':'⬜ ')+label,callback_data:'books:toggle:'+key}]),
