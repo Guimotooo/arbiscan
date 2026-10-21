@@ -2,7 +2,7 @@
 const BRAND = new Map(Object.entries({bet365:'Bet365', sportium:'Sportium',winamax:'Winamax',betfair:'Betfair',bwin:'bwin',codere:'Codere',luckia:'Luckia','william hill':'William Hill',betway:'Betway',retabet:'RETAbet',sportybet:'SportyBet'}));
 const norm=s=>String(s).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const number=s=>{const n=Number(String(s).trim().replace(',','.'));if(!Number.isFinite(n))throw Error('Número o cuota no válidos');return n;};
-const help='ArbiiScan busca automáticamente posibles arbitrajes entre Bet365 ES y Winamax ES. /start activa las alertas, /stop las desactiva, /estado consulta tu suscripción. No son apuestas garantizadas: comprueba siempre las cuotas en ambas casas.';
+const help='ArbiiScan: /start o /casas para seleccionar las casas. /estado consulta las preferencias; /stop cancela los avisos. La detección automática actual cubre fútbol 1X2 con Bet365 ES y Winamax ES.';
 const template='/comparar\nDeporte: futbol\nPartido: Barcelona vs Real Madrid\nMercado: total goles 2.5 (90 minutos)\nCapital: 100\nBet365 ES | mas | 2.10\nSportium ES | menos | 2.05\n\n⚠️ Precios ficticios de ejemplo. Sustituye las cuotas.';
 function outcomes(market,sport){
   const m=norm(market),s=norm(sport),soccer=s.includes('fut')||s.includes('soccer');
@@ -72,12 +72,24 @@ export function answerText(input){
     return intro+detail+'\n\nBeneficio mínimo TEÓRICO: +'+best.alloc.profit.toFixed(2)+' € ('+best.alloc.roi.toFixed(2)+' %).\nAntes de apostar verifica precios, reglas y límites en las casas. No se han realizado apuestas.';
   }catch(err){return '⚠️ '+err.message+'\nEnvía /plantilla.';}
 }
+const AVAILABLE_BOOKS=Object.freeze({'bet365.es':'Bet365 ES','winamax.es':'Winamax ES'});
+const pendingKey=id=>'pending:'+String(id);
+function readBooks(value){
+ if(!value)return [];
+ try{const data=JSON.parse(value);return Array.isArray(data.books)?[...new Set(data.books.filter(b=>Object.hasOwn(AVAILABLE_BOOKS,b)))]:[];}
+ catch{return Object.keys(AVAILABLE_BOOKS);}
+}
+function selectionMarkup(books){return {inline_keyboard:[
+ ...Object.entries(AVAILABLE_BOOKS).map(([key,label])=>[{text:(books.includes(key)?'✅ ':'⬜ ')+label,callback_data:'books:toggle:'+key}]),
+ [{text:'✅ Guardar selección',callback_data:'books:save'}]
+]};}
+function selectionMessage(){return '🏦 Elige las casas que utilizas y pulsa Guardar selección.\nPor ahora están conectadas Bet365 ES y Winamax ES. Para una oportunidad entre ambas debes tener las dos. Otros deportes y operadores siguen pendientes de validación.';}
 const chatKey=id=>'subscriber:'+String(id);
 const json=(obj,status=200)=>new Response(JSON.stringify(obj),{status,headers:{'content-type':'application/json'}});
-async function telegramSend(env,chatId,text){
+async function telegramSend(env,chatId,text,replyMarkup){
   const reply=await fetch('https://api.telegram.org/bot'+env.TELEGRAM_BOT_TOKEN+'/sendMessage',{
     method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({chat_id:chatId,text:text.slice(0,4000)})
+    body:JSON.stringify({chat_id:chatId,text:text.slice(0,4000),...(replyMarkup?{reply_markup:replyMarkup}:{})})
   });
   // Do not swallow permanent or temporary delivery failures.
   return reply;
@@ -106,8 +118,12 @@ export default {
          !/^[\w:.-]{4,160}$/.test(String(data?.event_key||'')))
         return json({error:'Alerta inválida'},400);
       const ids=await subscribers(env.SUBSCRIBERS);
+      const required=Array.isArray(data.books)?data.books:[];
+      if(required.length<2||required.some(b=>!Object.hasOwn(AVAILABLE_BOOKS,b)))return json({error:'Casas inválidas'},400);
       const report={subscribers:ids.length,sent:0,failed:0,duplicate:0};
       for(const id of ids){
+        const selected=readBooks(await env.SUBSCRIBERS.get(chatKey(id)));
+        if(!required.every(b=>selected.includes(b)))continue;
         const dedup='sent:'+data.event_key+':'+id;
         if(await env.SUBSCRIBERS.get(dedup)){report.duplicate++;continue;}
         try{
