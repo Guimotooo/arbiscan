@@ -76,7 +76,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(len(confirmed),len(choices))
     def test_merge(self):
         f=fixture(SPORTS[2])
-        feeds={b:[{**f,"bookmakerOdds":{b:f["bookmakerOdds"][b]}}] for b in BOOKS}
+        feeds={b:[{**f,"bookmakerOdds":{b:f["bookmakerOdds"][b]}}] for b in f["bookmakerOdds"]}
         out=join_results(feeds)
         self.assertEqual(len(out),1);self.assertEqual(len(out[0]["bookmakerOdds"]),5)
         self.assertIsNotNone(evaluate_fixture(out[0],SPORTS[2],NOW))
