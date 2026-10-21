@@ -20,28 +20,30 @@ function fakeKV(){
    async delete(k){values.delete(k);},
    async list({prefix}){return {keys:[...values.keys()].filter(k=>k.startsWith(prefix)).map(name=>({name})),list_complete:true};}};
 }
-test('new Telegram chat subscribes and receives automatic broadcast, stop removes it',async()=>{
-  const kv=fakeKV(), env={WEBHOOK_SECRET:'testsecret',TELEGRAM_BOT_TOKEN:'testtoken',SUBSCRIBERS:kv};
-  const old=globalThis.fetch,delivered=[];
-  globalThis.fetch=async(url,init)=>{delivered.push(JSON.parse(init.body));return new Response('{"ok":true}',{status:200});};
-  const req=(cmd,id)=>new Request('https://arbiscan.test/telegram',{method:'POST',
-    headers:{'X-Telegram-Bot-Api-Secret-Token':'testsecret','content-type':'application/json'},
-    body:JSON.stringify({message:{text:cmd,chat:{type:'private',id}}})});
-  const send=()=>new Request('https://arbiscan.test/broadcast',{method:'POST',
-    headers:{Authorization:'Bearer testsecret','content-type':'application/json'},
-    body:JSON.stringify({event_key:'1x2:test001',text:'Posible arbitraje no confirmado: partido de prueba'})});
-  try{
-    assert.equal((await worker.fetch(req('/start',17),env)).status,200);
-    assert.equal((await worker.fetch(req('/start',18),env)).status,200);
-    assert.ok(kv.values.has('subscriber:17'));assert.ok(kv.values.has('subscriber:18'));
-    const sent=await (await worker.fetch(send(),env)).json();
-    assert.equal(sent.sent,2);assert.equal(sent.subscribers,2);
-    assert.equal((await (await worker.fetch(send(),env)).json()).duplicate,2);
-    assert.equal((await worker.fetch(req('/stop',18),env)).status,200);
-    assert.ok(!kv.values.has('subscriber:18'));
-    assert.equal((await (await worker.fetch(send(),env)).json()).sent,0);
-    assert.equal(delivered.filter(x=>x.text.startsWith('Posible')).length,2);
-  }finally{globalThis.fetch=old;}
+test('Telegram user selects bookmakers and only receives matching alerts',async()=>{
+ const kv=fakeKV(),env={WEBHOOK_SECRET:'testsecret',TELEGRAM_BOT_TOKEN:'testtoken',SUBSCRIBERS:kv};
+ const previous=globalThis.fetch,delivered=[];
+ globalThis.fetch=async(url,init)=>{delivered.push({url,body:JSON.parse(init.body)});return new Response('{"ok":true}',{status:200});};
+ const req=(id,text)=>new Request('https://arbiscan.test/telegram',{method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':'testsecret','content-type':'application/json'},body:JSON.stringify({message:{text,chat:{type:'private',id}}})});
+ const cb=(id,data)=>new Request('https://arbiscan.test/telegram',{method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':'testsecret','content-type':'application/json'},body:JSON.stringify({callback_query:{id:'cb1',data,message:{chat:{id,type:'private'}}}})});
+ const broadcast=(key)=>new Request('https://arbiscan.test/broadcast',{method:'POST',headers:{Authorization:'Bearer testsecret','content-type':'application/json'},body:JSON.stringify({event_key:key,text:'Posible arbitraje no confirmado: partido de prueba',books:['bet365.es','winamax.es']})});
+ try{
+  assert.equal((await worker.fetch(req(17,'/start'),env)).status,200);
+  assert.ok(!kv.values.has('subscriber:17'));
+  assert.ok(delivered.at(-1).body.reply_markup);
+  assert.equal((await worker.fetch(cb(17,'books:save'),env)).status,200);
+  assert.ok(kv.values.has('subscriber:17'));
+  await worker.fetch(req(18,'/start'),env);
+  await worker.fetch(cb(18,'books:toggle:winamax.es'),env);
+  await worker.fetch(cb(18,'books:save'),env);
+  const sent=await (await worker.fetch(broadcast('1x2:choice001'),env)).json();
+  assert.equal(sent.sent,1);assert.equal(sent.subscribers,2);
+  assert.equal((await (await worker.fetch(broadcast('1x2:choice001'),env)).json()).duplicate,1);
+  await worker.fetch(req(17,'/stop'),env);
+  assert.ok(!kv.values.has('subscriber:17'));
+  assert.equal((await (await worker.fetch(broadcast('1x2:choice002'),env)).json()).sent,0);
+  assert.equal(delivered.filter(x=>x.body.text?.startsWith('Posible')).length,1);
+ }finally{globalThis.fetch=previous;}
 });
 test('broadcast rejects unauthenticated calls',async()=>{
   const env={WEBHOOK_SECRET:'s',TELEGRAM_BOT_TOKEN:'t',SUBSCRIBERS:fakeKV()};
