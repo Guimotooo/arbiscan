@@ -43,6 +43,11 @@ def api(endpoint, params, key, opener=urlopen):
             return json.load(response)
     except HTTPError as exc:
         reason=exc.read(700).decode("utf-8",errors="replace").replace(key,"[REDACTED]")
+        if (endpoint=="odds-by-tournaments" and exc.code==400 and
+            "Invalid bookmaker specified" in reason and
+            "does not have any fixtures available" in reason):
+            print("Sin encuentros en la fuente:",params.get("bookmaker"))
+            return []
         raise RuntimeError("OddsPapi HTTP " + str(exc.code) + " en " + endpoint + " · " + reason[:380]) from None
     except URLError:
         raise RuntimeError("Error de conexión a OddsPapi") from None
