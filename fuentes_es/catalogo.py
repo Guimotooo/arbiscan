@@ -1,6 +1,16 @@
 """Consulta puntual del catálogo real de OddsPapi, con reserva de cuota."""
 import os
 from fuentes_es.oddspapi import call, remaining_quota
+from urllib.request import urlopen
+from urllib.parse import urlencode
+import json
+
+def catalog_call(endpoint,key):
+    if endpoint not in ("sports","markets","bookmakers"):
+        raise ValueError("Catálogo no permitido")
+    url="https://api.oddspapi.io/v4/"+endpoint+"?"+urlencode({"apiKey":key,"language":"es"})
+    with urlopen(url,timeout=25) as response:
+        return json.load(response)
 
 def run():
     key=os.getenv("ODDS_PAPI_KEY","").strip()
@@ -13,7 +23,7 @@ def run():
         print("Consulta omitida para preservar el plan gratuito.")
         return
     for endpoint in ("sports","markets","bookmakers"):
-        rows=call(endpoint,{"language":"es"},key)
+        rows=catalog_call(endpoint,key)
         if not isinstance(rows,list):
             print(endpoint, "respuesta inesperada")
             continue
