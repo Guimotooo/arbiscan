@@ -37,8 +37,18 @@ def main():
             parsed.password or parsed.port or parsed.query or parsed.fragment or
             parsed.path not in ("", "/")):
         raise ValueError("WORKER_URL debe ser https://nombre.subdominio.workers.dev, sin rutas ni parámetros.")
-    with urlopen(Request(raw_url + "/health"), timeout=15) as response:
-        health = response.read(512).decode("utf-8", errors="replace")
+    print("Comprobando endpoint de salud de Cloudflare...")
+    try:
+        health_request = Request(raw_url + "/health", headers={
+            "User-Agent": "Mozilla/5.0 (compatible; ArbiiScanWebhookSetup/1.0)",
+            "Accept": "text/plain,*/*"
+        })
+        with urlopen(health_request, timeout=15) as response:
+            health = response.read(512).decode("utf-8", errors="replace")
+    except HTTPError as exc:
+        raise RuntimeError(f"Cloudflare devuelve HTTP {exc.code} al runner de GitHub. Revisa reglas WAF o protección de bots para /health.") from None
+    except URLError:
+        raise RuntimeError("GitHub no puede conectar con el Worker. Revisa la URL y el dominio.") from None
     if health.strip() != "ArbiiScan webhook disponible":
         raise RuntimeError("La URL no contiene todavía el Worker ArbiiScan. Revisa que Cloudflare haya desplegado worker/arbiscan.mjs.")
     print("Worker ArbiiScan verificado: /health OK.")
