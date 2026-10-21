@@ -1,0 +1,22 @@
+name: ArbiiScan - comprobar enlaces scraping ES
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scraping_es/targets.json'
+      - 'scraping_es/probar_enlaces.py'
+      - '.github/workflows/probar_enlaces_scraping.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar navegador de prueba
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Probar lectura pública sin iniciar sesión
+        run: python -m scraping_es.probar_enlaces
