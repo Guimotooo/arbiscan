@@ -4,6 +4,7 @@ Solo 1X2 de fútbol prepartido. Fallo cerrado. No coloca apuestas.
 from __future__ import annotations
 import json
 import os
+import time
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urlencode
 from urllib.request import urlopen, Request
@@ -82,9 +83,6 @@ updatedAt es actualización del evento, una señal imperfecta de vigencia.
         return None
     kickoff = utc(fixture.get("startTime"))
     if not kickoff or kickoff <= now + timedelta(minutes=MIN_LEAD_MINUTES):
-        return None
-    fixture_update = utc(fixture.get("updatedAt"))
-    if not fixture_update or not (0 <= (now-fixture_update).total_seconds() <= MAX_FIXTURE_UPDATE_AGE_SECONDS):
         return None
     books = fixture.get("bookmakerOdds")
     if not isinstance(books, dict):
@@ -238,18 +236,33 @@ def source_diagnostics(fixtures, now):
                 counts["alert_eligible_events"] += 1
     return counts
 
+def selected_signature(opp):
+    """Firma exacta del mercado y cuotas usadas (no de metadatos irrelevantes)."""
+    return (opp["fixture_id"], opp["start"],
+            tuple((o["bookmaker_key"], o["outcome"], o["price"]) for o in opp["offers"]))
+
+def confirm_candidates(first, second, observed_at):
+    """Solo acepta candidatos que siguen iguales tras una nueva lectura de ambas casas."""
+    by_id = {opp["fixture_id"]: opp for opp in second}
+    confirmed = []
+    for opp in first:
+        newer = by_id.get(opp["fixture_id"])
+        if newer and selected_signature(opp) == selected_signature(newer):
+            confirmed.append({**newer, "observed_at": observed_at})
+    return confirmed
+
 def message(opp):
     lines = [
       "ARBIISCAN | POSIBLE ARBITRAJE (NO CONFIRMADO)",
       opp["event"], "Inicio: " + opp["start"], "Mercado: 1X2 (90 minutos)",
-      "Última actualización registrada del evento: " + opp["provider_event_updated_at"],
+      "Consultado dos veces en OddsPapi: " + opp["observed_at"],
       "Capital ilustrativo: 100 €",
     ]
     for item in opp["offers"]:
         lines.append(item["bookmaker"] + " | " + item["outcome"] + " @ " +
                      f'{item["price"]:.2f} | {item["stake"]:.2f} €')
     lines += [f'Beneficio matemático estimado: {opp["profit"]:.2f} € ({opp["roi_percent"]:.2f}%).',
-              "Cuotas observadas, no confirmadas en cupón. Verifica disponibilidad, reglas y límites en ambas casas antes de apostar.",
+              "Las dos lecturas de la API coincidieron. Esto NO prueba disponibilidad en las casas. Comprueba ambos cupones, reglas y límites antes de apostar.",
               "Fuente: OddsPapi (bet365.es y winamax.es). No se ha apostado."]
     return "\n".join(lines)
 
@@ -277,16 +290,32 @@ def run():
     print("Cobertura de cuotas:", source_diagnostics(response, datetime.now(timezone.utc)))
     candidates = scan(response)
     print("Candidatos matemáticos encontrados:", len(candidates))
+    if not candidates:
+        print("Sin candidatos: no se consumen consultas de confirmación.")
+        return
+    if remaining < 20:
+        print("Créditos insuficientes para confirmar con dos lecturas.")
+        return
+    time.sleep(3)
+    second_by_book = {}
+    for slug in BOOKS:
+        second_by_book[slug] = call("odds-by-tournaments", {
+            "tournamentIds": tournaments, "bookmaker": slug,
+            "language": "es", "verbosity": 3,
+        }, key)
+    second_scan = scan(merge_bookmaker_fixtures(second_by_book))
+    confirmed = confirm_candidates(candidates, second_scan, datetime.now(timezone.utc).isoformat())
+    print("Candidatos reproducidos en ambas lecturas:", len(confirmed))
     if os.getenv("ODDSPAPI_ENABLE_ALERTS") != "true":
-        print("DRY RUN: envío desactivado hasta verificar la fuente con credenciales reales.")
+        print("DRY RUN: no se envían alertas; las lecturas repetidas NO certifican vigencia en la web.")
         return
     token = os.getenv("TELEGRAM_BOT_TOKEN","").strip()
     chat = os.getenv("TELEGRAM_CHAT_ID","").strip()
     if not token or not chat:
         raise ValueError("Faltan secretos de Telegram")
-    for opp in candidates[:MAX_RUN_CANDIDATES]:
+    for opp in confirmed[:MAX_RUN_CANDIDATES]:
         send_telegram(token, chat, message(opp))
-    print("Candidatos notificados:", min(MAX_RUN_CANDIDATES,len(candidates)))
+    print("Candidatos notificados:", min(MAX_RUN_CANDIDATES,len(confirmed)))
 
 if __name__ == "__main__":
     run()
