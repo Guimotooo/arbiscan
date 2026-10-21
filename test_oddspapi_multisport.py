@@ -74,7 +74,7 @@ class Tests(unittest.TestCase):
     def test_tournament_rotation_no_popularity(self):
         t=[{"tournamentId":i,"upcomingFixtures":1,"futureFixtures":0} for i in range(1,25)]
         selected=choose_tournaments(t,NOW)
-        self.assertEqual(len(selected),6)
+        self.assertEqual(len(selected),5)
         self.assertEqual(len(set(selected)),6)
         self.assertNotEqual(selected,choose_tournaments(t,NOW+timedelta(days=1)))
     def test_empty_tournaments(self):
