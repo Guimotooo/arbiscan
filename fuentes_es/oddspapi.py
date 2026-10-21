@@ -150,6 +150,33 @@ def scan(payload, now=None):
             results.append(item)
     return sorted(results, key=lambda x:x["profit"], reverse=True)
 
+def merge_bookmaker_fixtures(results_by_book):
+    """Combina por fixtureId; nunca mezcla eventos distintos ni infiere precios."""
+    merged = {}
+    for slug in BOOKS:
+        payload = results_by_book.get(slug)
+        rows = payload if isinstance(payload, list) else payload.get("data", []) if isinstance(payload, dict) else []
+        if not isinstance(rows, list):
+            raise ValueError("Formato inesperado de resultados")
+        for fixture in rows:
+            if not isinstance(fixture, dict):
+                continue
+            event_id = str(fixture.get("fixtureId") or "")
+            if not event_id:
+                continue
+            book_odds = fixture.get("bookmakerOdds")
+            if not isinstance(book_odds, dict) or slug not in book_odds:
+                continue
+            old = merged.get(event_id)
+            if old is None:
+                merged[event_id] = {**fixture, "bookmakerOdds": {slug: book_odds[slug]}}
+            else:
+                for field in ("sportId", "tournamentId", "startTime", "participant1Id", "participant2Id"):
+                    if old.get(field) != fixture.get(field):
+                        raise ValueError("El proveedor devuelve eventos contradictorios")
+                old["bookmakerOdds"][slug] = book_odds[slug]
+    return list(merged.values())
+
 def message(opp):
     lines = [
       "ARBIISCAN | POSIBLE ARBITRAJE (NO CONFIRMADO)",
@@ -172,15 +199,20 @@ def run():
     account = call("account", {}, key)
     remaining = remaining_quota(account)
     print("Créditos restantes antes de consultar:", remaining)
-    if remaining <= 15:
+    if remaining <= 16:
         print("Protección del plan gratuito: cuota insuficiente; no se realiza consulta.")
         return
     tournaments = (os.getenv("ODDSPAPI_TOURNAMENT_IDS") or "").strip() or "8,17"
     if not tournaments or any(not x.isdigit() for x in tournaments.split(",")) or len(tournaments.split(","))>6:
         raise ValueError("IDs de torneos inválidos")
-    response = call("odds-by-tournaments", {
-        "tournamentIds":tournaments, "bookmakers":",".join(BOOKS), "language":"es", "verbosity":3,
-    }, key)
+    results_by_book = {}
+    for slug in BOOKS:
+        results_by_book[slug] = call("odds-by-tournaments", {
+            "tournamentIds": tournaments, "bookmaker": slug,
+            "language": "es", "verbosity": 3,
+        }, key)
+    response = merge_bookmaker_fixtures(results_by_book)
+    print("Partidos emparejados:", len(response))
     candidates = scan(response)
     print("Candidatos matemáticos encontrados:", len(candidates))
     if os.getenv("ODDSPAPI_ENABLE_ALERTS") != "true":
