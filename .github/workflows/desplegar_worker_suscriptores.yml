@@ -3,6 +3,10 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - 'worker/arbiscan.mjs'
+      - '.github/workflows/desplegar_worker_suscriptores.yml'
+  push:
+    paths:
       - '.github/workflows/desplegar_worker_suscriptores.yml'
 permissions:
   contents: read
