@@ -24,7 +24,18 @@ def request_api(url, payload=None):
             raise RuntimeError("Telegram devuelve HTTP 401 (token no autorizado). Actualiza TELEGRAM_BOT_TOKEN en GitHub con el token nuevo.") from None
         if exc.code == 403:
             raise RuntimeError("Telegram devuelve HTTP 403 (acceso prohibido). Revisar si Telegram bloquea esta solicitud o si hay una restricción de red.") from None
-        raise RuntimeError(f"Telegram devuelve HTTP {exc.code} al registrar el webhook. Revisa el estado de la API.") from None
+        if exc.code == 400:
+            try:
+                error_data = json.loads(exc.read(4096).decode("utf-8", errors="replace"))
+                description = str(error_data.get("description", "Solicitud no válida"))
+                # Never disclose the bot token or webhook secret in logs.
+                description = description.replace(os.getenv("TELEGRAM_BOT_TOKEN", ""), "[REDACTED]")
+                description = description.replace(os.getenv("WEBHOOK_SECRET", ""), "[REDACTED]")
+                description = re.sub(r"\\b\\d{6,12}:[A-Za-z0-9_-]{20,}\\b", "[REDACTED]", description)
+                raise RuntimeError("Telegram HTTP 400: " + description[:350])
+            except (ValueError, UnicodeError):
+                raise RuntimeError("Telegram HTTP 400: respuesta no válida") from None
+        raise RuntimeError(f"Telegram devuelve HTTP {exc.code} al registrar el webhook.") from None
     except (URLError, ValueError):
         raise RuntimeError("No se pudo contactar con Telegram o interpretar su respuesta.") from None
 
