@@ -11,7 +11,8 @@ def fixture(draw_price=3.8, status=0, changed=None, updated=None):
            k:{"players":{"0":{"active":True,"price":price,"changedAt":changed}}}
            for k,price in zip(("101","102","103"),(home,draw,away))}}}}
     return {"sportId":10,"statusId":status,"fixtureId":"f1",
-            "startTime":(NOW+timedelta(hours=2)).isoformat(),\n            "updatedAt":(updated or NOW).isoformat(),
+            "startTime":(NOW+timedelta(hours=2)).isoformat(),
+            "updatedAt":(updated or NOW).isoformat(),
             "participant1Name":"Casa","participant2Name":"Fuera",
             "bookmakerOdds":{"bet365.es":book(3.6,draw_price,1.8),
                              "winamax.es":book(1.8,3.0,3.8)}}
