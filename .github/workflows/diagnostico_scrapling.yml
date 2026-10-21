@@ -1,0 +1,19 @@
+name: ArbiiScan - diagnostico Scrapling Winamax
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scraping_es/scrapling_probe.py'
+      - '.github/workflows/diagnostico_scrapling.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar Scrapling
+        run: python -m pip install 'scrapling[fetchers]'
+      - name: Consultar una vez Winamax publico sin tecnicas anti-bloqueo
+        run: python -m scraping_es.scrapling_probe
