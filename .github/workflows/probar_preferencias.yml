@@ -1,0 +1,33 @@
+name: ArbiiScan - probar preferencias de suscriptores
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/probar_preferencias.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Comprobar lectura autenticada agregada de preferencias
+        env:
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+        run: |
+          python - <<'PY'
+          import os,json
+          from urllib.request import Request,urlopen
+          secret=os.environ.get("WEBHOOK_SECRET","")
+          if not secret:
+              raise SystemExit("Falta WEBHOOK_SECRET")
+          url="https://arbiscan.dame-un-like-porfavor.workers.dev/scan-preferences"
+          request=Request(url,headers={"Authorization":"Bearer "+secret})
+          with urlopen(request,timeout=15) as r:
+              data=json.load(r)
+          assert isinstance(data.get("subscriber_count"),int)
+          assert isinstance(data.get("pairs"),dict)
+          print("Prefencias autenticadas disponibles: OK")
+          print("Suscriptores contabilizados:",data["subscriber_count"])
+          print("Parejas de casas distintas contabilizadas:",len(data["pairs"]))
+          PY
