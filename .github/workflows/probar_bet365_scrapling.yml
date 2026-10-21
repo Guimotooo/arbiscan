@@ -1,0 +1,21 @@
+name: ArbiiScan - comprobar Bet365 ES con Scrapling
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scraping_es/probar_bet365_scrapling.py'
+      - '.github/workflows/probar_bet365_scrapling.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar Scrapling y Chromium
+        run: |
+          python -m pip install 'scrapling[fetchers]' playwright
+          python -m playwright install --with-deps chromium
+      - name: Leer enlace publico Bet365 ES sin evasion
+        run: python -m scraping_es.probar_bet365_scrapling
