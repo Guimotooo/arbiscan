@@ -1,7 +1,7 @@
 """ArbiiScan v2: rotación multideporte y cinco operadores españoles verificados en el catálogo.
 
-Cuota gratuita: una ronda diaria = 1 catálogo de torneos + 5 casas (6 créditos).
-Si hay posibles arbitrajes, repetir las cinco consultas y exigir coincidencia.
+Cuota gratuita: hasta dos rondas diarias, 1 catálogo + 3 casas por ronda.
+Si hay posibles arbitrajes, releer solamente las casas implicadas y exigir coincidencia.
 Nunca garantiza aceptación de cuotas en el cupón de las casas.
 """
 from __future__ import annotations
@@ -29,6 +29,7 @@ SPORTS = (
 )
 # Ventana conservadora de movimientos de cuotas, NO de metadatos del evento.
 MAX_AGE_SECONDS = 3600
+MAX_BOOKS_PER_SCAN = 3
 MAX_LEAGUES_PER_SCAN = 5
 MIN_LEAD_MINUTES = 15
 MAX_ALERTS = 30
@@ -204,9 +205,9 @@ def format_alert(opp):
     return "\n".join(out)
 
 def book_selection(now, pair_demand=None):
-    """Elige hasta cinco casas según parejas de usuarios, o rota todo el catálogo."""
+    """Elige hasta tres casas según parejas de usuarios, con límite de cuota."""
     available=list(BOOKS)
-    max_books=5
+    max_books=MAX_BOOKS_PER_SCAN
     valid={}
     if isinstance(pair_demand,dict):
         for key,value in pair_demand.items():
@@ -216,7 +217,7 @@ def book_selection(now, pair_demand=None):
             if isinstance(value,int) and 0 < value < 100000:
                 valid[frozenset(names)]=value
     if valid:
-        # 11 choose 5 = 462 combinaciones: suficiente para optimización exacta.
+        # 11 choose 3 = 165 combinaciones: optimización exacta.
         rotation={slug:(i-now.date().toordinal())%len(BOOKS)
                   for i,slug in enumerate(BOOKS)}
         return tuple(max(combinations(available,max_books), key=lambda chosen: (
@@ -227,7 +228,7 @@ def book_selection(now, pair_demand=None):
     # mientras rotamos el resto para explorar nuevos operadores españoles.
     extras=[b for b in available if b not in ("bet365.es","winamax.es")]
     index=now.date().toordinal()%len(extras)
-    return ("bet365.es","winamax.es") + tuple(extras[(index+i)%len(extras)] for i in range(3))
+    return ("bet365.es","winamax.es") + tuple(extras[(index+i)%len(extras)] for i in range(MAX_BOOKS_PER_SCAN-2))
 
 def subscriber_demand(worker_url, secret):
     if not worker_url.startswith("https://") or not worker_url.endswith(".workers.dev") or not secret:
@@ -248,14 +249,19 @@ def run():
         print("Falta API key; no se consulta.")
         return
     now=datetime.now(timezone.utc)
-    sport=choose_sport(now)
+    # Priorizar fútbol 1X2, cuyas reglas son explícitas y homogéneas.
+    # Otros mercados solo cuando se hayan verificado sus reglas por operador.
+    selected_sport=os.getenv("ARBI_SPORT_ID", "10").strip()
+    sport=next((item for item in SPORTS if str(item[0])==selected_sport), None)
+    if sport is None:
+        raise ValueError("Deporte configurado no reconocido")
     worker=os.getenv("ARBI_WORKER_URL","").strip()
     secret=os.getenv("WEBHOOK_SECRET","").strip()
     books=book_selection(now,subscriber_demand(worker,secret))
     print("Casas elegidas según suscriptores:",", ".join(books))
     remaining=remaining_quota(api("account",{},key))
     print("Créditos disponibles:",remaining,"Deporte de la ronda:",sport[1])
-    if remaining<MIN_CREDITS_FOR_SCAN:
+    if remaining<MIN_CREDITS_FOR_SCAN + 1 + len(books):
         print("Reserva de créditos alcanzada; no se consulta.")
         return
     tournament_list=api("tournaments",{"sportId":sport[0],"language":"es"},key)
@@ -274,13 +280,16 @@ def run():
     print("Candidatos matemáticos:",len(candidates))
     if not candidates:
         return
-    # No repetir si la cuota restante está al límite. Consumiremos como máximo 5 consultas adicionales.
-    if remaining<MIN_CREDITS_FOR_SCAN+5:
+    # Releer únicamente las casas necesarias para los candidatos, no todo
+    # el catálogo inicial. La cuota se evalúa antes de nuevas solicitudes.
+    needed=sorted({offer["bookmaker_key"] for item in candidates for offer in item["offers"]})
+    spent_first=1+len(books)
+    if remaining-spent_first < MIN_CREDITS_FOR_SCAN+len(needed):
         print("Sin presupuesto de confirmación.")
         return
     time.sleep(3)
     second={}
-    for index,brand in enumerate(books):
+    for index,brand in enumerate(needed):
         if index: time.sleep(2.5)
         second[brand]=api("odds-by-tournaments",{**params,"bookmaker":brand},key)
     confirmed=double_check(candidates,scan(join_results(second),sport,datetime.now(timezone.utc)),datetime.now(timezone.utc))
