@@ -31,7 +31,8 @@ def publish_scan_status(*, worker_url, secret, state, books=(),
                      "confirmed":confirmed,"sent":sent}).encode("utf-8")
     request=Request(worker_url.rstrip("/")+"/scan-status",data=data,method="POST",
                     headers={"Authorization":"Bearer "+secret.strip(),
-                             "Content-Type":"application/json"})
+                             "Content-Type":"application/json","User-Agent":"curl/8.5.0",
+                             "Accept":"application/json"})
     try:
         with opener(request,timeout=12) as response:
             return response.status==200 and json.load(response).get("ok") is True
