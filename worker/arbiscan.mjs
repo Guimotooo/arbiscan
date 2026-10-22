@@ -2,7 +2,7 @@
 const BRAND = new Map(Object.entries({bet365:'Bet365', sportium:'Sportium',winamax:'Winamax',betfair:'Betfair',bwin:'bwin',codere:'Codere',luckia:'Luckia','william hill':'William Hill',betway:'Betway',retabet:'RETAbet',sportybet:'SportyBet'}));
 const norm=s=>String(s).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const number=s=>{const n=Number(String(s).trim().replace(',','.'));if(!Number.isFinite(n))throw Error('Número o cuota no válidos');return n;};
-const help='ArbiiScan: /start o /casas para seleccionar las casas. /estado consulta las preferencias; /stop cancela los avisos. La detección automática actual cubre fútbol 1X2 con Bet365 ES y Winamax ES.';
+const help='ArbiiScan: /prueba comprueba Telegram y Cloudflare en tiempo real; /plantilla y /comparar permiten comparar cuotas introducidas por ti (no se extraen automáticamente). /start o /casas seleccionan casas; /estado consulta preferencias; /stop cancela avisos. El escáner externo no garantiza cuotas actualizadas de Bet365.';
 const template='/comparar\nDeporte: futbol\nPartido: Barcelona vs Real Madrid\nMercado: total goles 2.5 (90 minutos)\nCapital: 100\nBet365 ES | mas | 2.10\nSportium ES | menos | 2.05\n\n⚠️ Precios ficticios de ejemplo. Sustituye las cuotas.';
 function outcomes(market,sport){
   const m=norm(market),s=norm(sport),soccer=s.includes('fut')||s.includes('soccer');
@@ -243,6 +243,22 @@ export default {
         const selected=readBooks(saved);
         text=saved?'✅ Casas guardadas: '+(selected.map(b=>AVAILABLE_BOOKS[b]).join(', ')||'ninguna')+'. Puedes cambiarlas con /casas.':'🔕 No estás suscrito. Envía /start.';
       }
+    }else if(command==='/prueba'||command==='/probar'){
+      // Real Telegram -> webhook -> Cloudflare -> Telegram round trip, without fake odds.
+      let subscriptions='No configuradas';
+      if(env.SUBSCRIBERS){
+        const saved=await env.SUBSCRIBERS.get(chatKey(id));
+        const selected=readBooks(saved);
+        subscriptions=saved
+          ? 'Guardadas: '+(selected.map(b=>AVAILABLE_BOOKS[b]).join(', ')||'ninguna')
+          : 'Sin suscripción guardada';
+      }
+      text='🔎 ARBIISCAN · PRUEBA REAL DE CONEXIÓN\n'+
+           '✅ Mensaje recibido desde Telegram y procesado por Cloudflare.\n'+
+           '✅ Respuesta generada en vivo: '+new Date().toISOString()+' (UTC).\n'+
+           '🏦 Preferencias: '+subscriptions+'\n'+
+           'ℹ️ Esta prueba NO obtiene cuotas de Bet365.\n'+
+           'Para comprobar cuotas introducidas por ti: /plantilla y /comparar.';
     }else{text=answerText(msg.text);}
     if(!text)return new Response('OK');
     const reply=await telegramSend(env,id,text,markup);
