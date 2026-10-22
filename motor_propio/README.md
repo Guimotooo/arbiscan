@@ -6,7 +6,7 @@ una cuota confirmada disponible para apostar.
 
 ## Estado comprobado
 
-- 49 pruebas automáticas del motor original superadas (incluidas 1X2, ganador,
+- 51 pruebas automáticas del motor original superadas (incluidas 1X2, ganador,
   totales de línea x.5, comprobación de cuotas, mercados incompatibles, fechas,
   resultados incompletos, contenido HTML ambiguo y páginas de acceso bloqueado).
 - Lector HTML de contenido estático o generado con JavaScript mediante Playwright
