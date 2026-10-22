@@ -66,7 +66,7 @@ test('real /prueba verifies a private Telegram to Cloudflare round trip without 
   assert.match(delivered[0].body.text,/PRUEBA REAL DE CONEXIÓN/);
   assert.match(delivered[0].body.text,/Bet365 ES, Winamax ES/);
   assert.match(delivered[0].body.text,/NO obtiene cuotas de Bet365/);
-  assert.match(delivered[0].body.text,/\\d{4}-\\d{2}-\\d{2}T/);
+  assert.match(delivered[0].body.text,new RegExp('[0-9]{4}-[0-9]{2}-[0-9]{2}T'));
   assert.equal((await worker.fetch(req,{...env,WEBHOOK_SECRET:'wrong'})).status,403);
   assert.equal(delivered.length,1);
  }finally{
