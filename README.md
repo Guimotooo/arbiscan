@@ -109,10 +109,13 @@ hora compatibles, no se activará el envío de supuestos arbitrajes directos.
 
 ### Escáner directo local, sin proveedores ni Telegram
 
-    ARBI_DIRECT_BWIN_ALLOWED=true ARBI_DIRECT_SPORTIUM_ALLOWED=true python -m motor_propio.run --direct --bankroll 100
+    ARBI_DIRECT_BWIN_ALLOWED=true ARBI_DIRECT_SPORTIUM_ALLOWED=true python -m motor_propio.run --direct --bankroll 100 --max-events 200
 
 Este comando sólo utiliza conectores de DOM público. Nunca llama a OddsPapi,
 The Odds API, Cloudflare Worker ni Telegram. Si dos o más conectores directos
 proporcionan el mismo 1X2 con reglas compatibles, imprime en consola las cuotas
 e importes a céntimos para el capital indicado. Las casas bloqueadas o cuyos
 mercados no se puedan identificar se omiten, no se sustituyen por un proveedor.
+Actualmente recorre fútbol, tenis y baloncesto; sólo acepta 1X2 de 90 minutos
+en fútbol y ganador del partido con las reglas explícitas del motor para tenis
+y baloncesto.

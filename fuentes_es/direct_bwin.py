@@ -18,9 +18,11 @@ from urllib.parse import urljoin
 from motor_propio.engine import BadQuote, Quote
 
 BOOK = "bwin.es"
-SOURCE_URL = "https://www.bwin.es/es/sports/f%C3%BAtbol-4"
-MARKET = "1x2:regulation"
-SPORT = "soccer"
+SPORTS = {
+    "soccer": ("https://www.bwin.es/es/sports/f%C3%BAtbol-4", "1x2:regulation", ["1", "X", "2"], "resultado del partido"),
+    "tennis": ("https://www.bwin.es/es/sports/tenis-5", "winner:completed_match", ["1", "2"], "2 way"),
+    "basketball": ("https://www.bwin.es/es/sports/baloncesto-7", "winner:including_ot", ["1", "2"], "2 way"),
+}
 
 
 class DirectSourceUnavailable(RuntimeError):
@@ -61,7 +63,7 @@ def parse_bwin_time(value: str, now: datetime) -> datetime | None:
     return target.astimezone(timezone.utc)
 
 
-def parse_cards(cards: Iterable[dict], now: datetime) -> list[Quote]:
+def parse_cards(cards: Iterable[dict], now: datetime, *, sport="soccer", market="1x2:regulation", labels_expected=None, market_text="resultado del partido") -> list[Quote]:
     """Valida el subconjunto de tarjetas 1X2 inequívocas extraído del DOM."""
     quotes: list[Quote] = []
     seen: set[str] = set()
@@ -71,24 +73,26 @@ def parse_cards(cards: Iterable[dict], now: datetime) -> list[Quote]:
         labels = card.get("labels")
         prices = card.get("prices")
         teams = card.get("teams")
-        if labels != ["1", "X", "2"] or not isinstance(prices, list) or len(prices) != 3:
+        labels_expected = labels_expected or ["1", "X", "2"]
+        if labels != labels_expected or not isinstance(prices, list) or len(prices) != len(labels_expected):
             continue
         if not isinstance(teams, list) or len(teams) != 2 or not all(isinstance(v, str) for v in teams):
             continue
         start = parse_bwin_time(str(card.get("start", "")), now)
         href = str(card.get("href", ""))
-        market = str(card.get("market", "")).casefold()
+        market_heading = str(card.get("market", "")).casefold()
         if not start or not href.startswith("/es/sports/eventos/"):
             continue
-        if "resultado del partido" not in market:
+        if market_text not in market_heading:
             continue
         url = urljoin("https://www.bwin.es", href)
         if url in seen:
             continue
         try:
-            quote = Quote(book=BOOK, sport=SPORT, home=teams[0], away=teams[1],
-                          kickoff=start, market=MARKET,
-                          prices={"1": prices[0], "X": prices[1], "2": prices[2]},
+            values = ({"1": prices[0], "X": prices[1], "2": prices[2]}
+                      if len(labels_expected) == 3 else {"1": prices[0], "2": prices[1]})
+            quote = Quote(book=BOOK, sport=sport, home=teams[0], away=teams[1],
+                          kickoff=start, market=market, prices=values,
                           observed_at=now, source="permitted_web", url=url)
         except (BadQuote, TypeError, ValueError):
             continue
@@ -119,7 +123,7 @@ def _visible_cards(page) -> list[dict]:
     }""")
 
 
-def discover(now: datetime | None = None, *, headless: bool = True) -> list[Quote]:
+def discover(now: datetime | None = None, *, headless: bool = True, sports=("soccer", "tennis", "basketball")) -> list[Quote]:
     """Abre una página pública Bwin y devuelve sólo 1X2 prepartido validable.
 
     El permiso se expresa mediante una variable de entorno para impedir que una
@@ -131,18 +135,24 @@ def discover(now: datetime | None = None, *, headless: bool = True) -> list[Quot
     from playwright.sync_api import sync_playwright
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=headless)
-        page = browser.new_page(locale="es-ES", timezone_id="Europe/Madrid")
         try:
-            response = page.goto(SOURCE_URL, wait_until="domcontentloaded", timeout=30000)
-            if response is None or response.status >= 400:
-                raise DirectSourceUnavailable("Bwin no devolvió una página pública utilizable")
-            page.wait_for_timeout(1800)
-            body = page.locator("body").inner_text(timeout=6000)
-            if re.search(r"captcha|access denied|acceso denegado|verify you", body, re.I):
-                raise DirectSourceUnavailable("Bwin presentó un control de acceso; no se intenta eludir")
-            return parse_cards(_visible_cards(page), now)
+            quotes=[]
+            for sport in sports:
+                if sport not in SPORTS: continue
+                url, market, expected, text = SPORTS[sport]
+                page = browser.new_page(locale="es-ES", timezone_id="Europe/Madrid")
+                try:
+                    response = page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                    if response is None or response.status >= 400: continue
+                    page.wait_for_timeout(1800)
+                    body = page.locator("body").inner_text(timeout=6000)
+                    if re.search(r"captcha|access denied|acceso denegado|verify you", body, re.I): continue
+                    quotes.extend(parse_cards(_visible_cards(page), now, sport=sport, market=market,
+                                              labels_expected=expected, market_text=text))
+                finally:
+                    page.close()
+            return quotes
         finally:
-            page.close()
             browser.close()
 
 

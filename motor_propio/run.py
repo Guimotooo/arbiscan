@@ -138,7 +138,7 @@ def run_provider_audit():
     print("No se enviaron avisos: prueba de una sola lectura de OddsPapi.")
 
 
-def run_direct(bankroll):
+def run_direct(bankroll, max_events=200):
     """Escáner local de conectores directos; no usa proveedores ni Telegram.
 
     Cada adaptador debe devolver ``Quote`` con fuente ``permitted_web``.  El
@@ -158,7 +158,11 @@ def run_direct(bankroll):
         quotes.extend(sportium_discover(now))
     except DirectSourceUnavailable as exc:
         print("Sportium ES:",exc)
-    print("Cuotas directas válidas:",len(quotes))
+    # Límite explícito: controla el tiempo y evita navegar o calcular sobre un
+    # catálogo ilimitado. Las selecciones se hacen después de validar mercado.
+    quotes=quotes[:max_events]
+    from collections import Counter
+    print("Cuotas directas válidas:",len(quotes),"por deporte:",dict(Counter(q.sport for q in quotes)))
     print("Bet365 ES: no incluida (bloqueo 403 comprobado; sin evasión).")
     print("Winamax ES: no incluida (aún no hay 1X2 DOM validado).")
     candidates=opportunities(quotes,datetime.now(timezone.utc),bankroll=bankroll)
@@ -182,6 +186,8 @@ def main():
                          help="solo DOM público; no usa proveedores ni Telegram")
     parser.add_argument("--bankroll",type=float,default=100.0,
                         help="capital para el reparto teórico en --direct")
+    parser.add_argument("--max-events",type=int,default=200,
+                        help="máximo de encuentros directos a analizar (1-200)")
     parser.add_argument("--send",action="store_true",
                         help="Solo para --profiles, después de dos lecturas coincidentes")
     args=parser.parse_args()
@@ -189,11 +195,13 @@ def main():
         parser.error("--send solo está permitido para páginas verificadas con --profiles")
     if args.bankroll<=0 or args.bankroll>100000:
         parser.error("--bankroll debe estar entre 0 y 100000")
+    if not 1 <= args.max_events <= 200:
+        parser.error("--max-events debe estar entre 1 y 200")
     if args.demo:demo()
     elif args.feed:run_feed(args.feed)
     elif args.profiles:run_web(args.profiles,args.send)
     elif args.odds_papi_audit:run_provider_audit()
-    else:run_direct(args.bankroll)
+    else:run_direct(args.bankroll,args.max_events)
 
 
 if __name__=="__main__":
