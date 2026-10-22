@@ -73,6 +73,38 @@ test('real /prueba verifies a private Telegram to Cloudflare round trip without 
   globalThis.fetch=previous;
  }
 });
+test('latest real scan status is authenticated and readable in Telegram',async()=>{
+ const kv=fakeKV(),env={WEBHOOK_SECRET:'websecret',BROADCAST_SECRET:'broadcastsecret',
+   TELEGRAM_BOT_TOKEN:'testtoken',SUBSCRIBERS:kv};
+ const previous=globalThis.fetch,posts=[];
+ globalThis.fetch=async(url,init)=>{
+   posts.push({url,body:JSON.parse(init.body)});
+   return new Response('{"ok":true}',{status:200});
+ };
+ const payload={state:'finished',checked_at:'2026-10-22T13:00:00Z',
+   books:['bet365.es','winamax.es','bwin.es'],fixture_count:36,
+   candidates:0,confirmed:0,sent:0};
+ const sendStatus=(token,data)=>new Request('https://arbiscan.test/scan-status',{
+   method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+   body:JSON.stringify(data)});
+ const command=new Request('https://arbiscan.test/telegram',{
+   method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':'websecret',
+   'Content-Type':'application/json'},
+   body:JSON.stringify({message:{text:'/escaneo',chat:{type:'private',id:17}}})
+ });
+ try{
+   assert.equal((await worker.fetch(sendStatus('wrong',payload),env)).status,403);
+   assert.equal((await worker.fetch(sendStatus('broadcastsecret',
+     {...payload,state:'fictional'}),env)).status,400);
+   assert.equal((await worker.fetch(sendStatus('broadcastsecret',payload),env)).status,200);
+   assert.equal((await worker.fetch(command,env)).status,200);
+   assert.equal(posts.length,1);
+   assert.match(posts[0].body.text,/Partidos recibidos: 36/);
+   assert.match(posts[0].body.text,/Candidatos: 0/);
+   assert.match(posts[0].body.text,/OddsPapi/);
+   assert.match(posts[0].body.text,/Bwin ES/);
+ }finally{globalThis.fetch=previous;}
+});
 test('broadcast rejects unauthenticated calls',async()=>{
   const env={WEBHOOK_SECRET:'s',BROADCAST_SECRET:'s',TELEGRAM_BOT_TOKEN:'t',SUBSCRIBERS:fakeKV()};
   const response=await worker.fetch(new Request('https://arbiscan.test/broadcast',{method:'POST'}),env);

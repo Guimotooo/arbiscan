@@ -23,6 +23,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validar mercados y arbitrajes 4 deportes
         run: python -m unittest -v test_oddspapi_multisport.py
+      - name: Validar publicación del estado de escaneo
+        run: python -m unittest -v test_scan_status.py
       - name: Evaluar proveedor real con la cuota gratuita
         env:
           ODDS_PAPI_KEY: ${{ secrets.ODDS_PAPI_KEY }}

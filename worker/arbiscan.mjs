@@ -2,7 +2,7 @@
 const BRAND = new Map(Object.entries({bet365:'Bet365', sportium:'Sportium',winamax:'Winamax',betfair:'Betfair',bwin:'bwin',codere:'Codere',luckia:'Luckia','william hill':'William Hill',betway:'Betway',retabet:'RETAbet',sportybet:'SportyBet'}));
 const norm=s=>String(s).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const number=s=>{const n=Number(String(s).trim().replace(',','.'));if(!Number.isFinite(n))throw Error('Número o cuota no válidos');return n;};
-const help='ArbiiScan: /prueba comprueba Telegram y Cloudflare en tiempo real; /plantilla y /comparar permiten comparar cuotas introducidas por ti (no se extraen automáticamente). /start o /casas seleccionan casas; /estado consulta preferencias; /stop cancela avisos. El escáner externo no garantiza cuotas actualizadas de Bet365.';
+const help='ArbiiScan: /escaneo muestra el último estado del escáner; /prueba comprueba la conexión; /start y /casas guardan preferencias; /estado consulta las casas; /stop cancela avisos. /plantilla y /comparar son funciones manuales.';
 const template='/comparar\nDeporte: futbol\nPartido: Barcelona vs Real Madrid\nMercado: total goles 2.5 (90 minutos)\nCapital: 100\nBet365 ES | mas | 2.10\nSportium ES | menos | 2.05\n\n⚠️ Precios ficticios de ejemplo. Sustituye las cuotas.';
 function outcomes(market,sport){
   const m=norm(market),s=norm(sport),soccer=s.includes('fut')||s.includes('soccer');
@@ -121,6 +121,25 @@ export default {
   async fetch(request,env){
     const path=new URL(request.url).pathname;
     if(request.method==='GET'&&path==='/health')return new Response('ArbiiScan webhook disponible');
+    if(request.method==='POST'&&path==='/scan-status'){
+      if(!env.BROADCAST_SECRET||!env.SUBSCRIBERS)return json({error:'No configurado'},503);
+      if(request.headers.get('Authorization')!=='Bearer '+String(env.BROADCAST_SECRET).trim())
+        return json({error:'No autorizado'},403);
+      let value;
+      try{value=await request.json();}catch{return json({error:'JSON inválido'},400);}
+      if(!['running','finished','failed','skipped'].includes(value?.state)||
+        !/^20[0-9]{2}-[0-9]{2}-[0-9]{2}T/.test(String(value?.checked_at||''))||
+        !Array.isArray(value?.books)||value.books.some(k=>!Object.hasOwn(AVAILABLE_BOOKS,k))||
+        !['fixture_count','candidates','confirmed','sent'].every(k=>
+           value[k]===undefined||(Number.isSafeInteger(value[k])&&value[k]>=0&&value[k]<=100000)))
+        return json({error:'Estado inválido'},400);
+      const record={state:value.state,checked_at:value.checked_at,
+        source:'OddsPapi',books:value.books,
+        fixture_count:value.fixture_count||0,candidates:value.candidates||0,
+        confirmed:value.confirmed||0,sent:value.sent||0};
+      await env.SUBSCRIBERS.put('system:last_scan',JSON.stringify(record));
+      return json({ok:true});
+    }
     if(request.method==='GET'&&path==='/scan-preferences'){
       if(!env.BROADCAST_SECRET||!env.SUBSCRIBERS)return json({error:'KV sin configurar'},503);
       if(request.headers.get('Authorization')!=='Bearer '+String(env.BROADCAST_SECRET).trim())
@@ -242,6 +261,26 @@ export default {
         const saved=await env.SUBSCRIBERS.get(chatKey(id));
         const selected=readBooks(saved);
         text=saved?'✅ Casas guardadas: '+(selected.map(b=>AVAILABLE_BOOKS[b]).join(', ')||'ninguna')+'. Puedes cambiarlas con /casas.':'🔕 No estás suscrito. Envía /start.';
+      }
+    }else if(command==='/escaneo'||command==='/estado_scan'){
+      const raw=env.SUBSCRIBERS?await env.SUBSCRIBERS.get('system:last_scan'):null;
+      if(!raw)text='No hay una búsqueda automática registrada todavía.';
+      else{
+        let status;
+        try{status=JSON.parse(raw);}catch{status=null;}
+        if(!status)text='No hay un estado válido de búsqueda.';
+        else{
+          const houses=(status.books||[]).map(x=>AVAILABLE_BOOKS[x]||x).join(', ');
+          text='🔎 ARBIISCAN · ÚLTIMO ESCANEO\n'+
+            'Estado: '+status.state+'\n'+
+            'Fecha UTC: '+status.checked_at+'\n'+
+            'Fuente: '+status.source+' (no scraping directo)\n'+
+            'Casas: '+(houses||'Ninguna')+'\n'+
+            'Partidos recibidos: '+status.fixture_count+'\n'+
+            'Candidatos: '+status.candidates+'\n'+
+            'Confirmados: '+status.confirmed+'\n'+
+            'Alertas enviadas: '+status.sent;
+        }
       }
     }else if(command==='/prueba'||command==='/probar'){
       // Real Telegram -> webhook -> Cloudflare -> Telegram round trip, without fake odds.
