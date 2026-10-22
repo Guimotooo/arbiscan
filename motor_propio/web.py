@@ -181,17 +181,33 @@ def load_profiles(filepath: str):
     return profiles
 
 
-def scrape_profiles(profiles, wait_seconds=3):
-    if not profiles:
-        return []
+def scrape_profiles(profiles, wait_seconds=3, on_error=None):
+    """Consulta todas las casas permitidas, descartando solo las fuentes fallidas.
+
+    Los fallos de una casa nunca se transforman en cuotas ni impiden revisar
+    otras fuentes. La configuración de todas se verifica ANTES de navegar.
+    """
+    if not isinstance(profiles,list) or len(profiles)>12:
+        raise BadQuote("Número excesivo de perfiles")
+    for profile in profiles:
+        validate_profile(profile)
     readings=[]
     for index,profile in enumerate(profiles):
         if index:
             time.sleep(max(3,int(wait_seconds)))
-        observed=datetime.now(timezone.utc)
-        body=fetch_page(profile)
-        reading=parse_html(body,profile,observed)
-        readings.append(reading)
+        try:
+            observed=datetime.now(timezone.utc)
+            body=fetch_page(profile)
+            reading=parse_html(body,profile,observed)
+            readings.append(reading)
+        except Exception as exc:
+            # No mostrar excepciones de red que pudieran contener cookies/tokens.
+            category=type(exc).__name__
+            reason=str(exc)[:120] if isinstance(exc,BadQuote) else category
+            if on_error is not None:
+                on_error(profile["book"],reason)
+            else:
+                print("Fuente omitida:",profile["book"],reason)
     return readings
 
 
