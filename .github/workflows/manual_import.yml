@@ -1,0 +1,19 @@
+name: ArbiiScan - mercados introducidos manualmente
+on:
+  push:
+    paths:
+      - 'motor_propio/manual_import.py'
+      - 'test_manual_import.py'
+      - '.github/workflows/manual_import.yml'
+      - 'motor_propio/engine.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probar conversor de cuotas manuales
+        run: python -m unittest -v test_manual_import.py
