@@ -46,9 +46,20 @@ def api(endpoint, params, key, opener=urlopen):
             return json.load(response)
     except HTTPError as exc:
         reason=exc.read(700).decode("utf-8",errors="replace").replace(key,"[REDACTED]")
-        if (endpoint=="odds-by-tournaments" and exc.code==400 and
-            "Invalid bookmaker specified" in reason and
-            "does not have any fixtures available" in reason):
+        # La ausencia de partidos en una casa es un resultado vacío, no
+        # un fallo global. OddsPapi devuelve tanto HTTP 400 como 404.
+        no_fixtures=False
+        if endpoint=="odds-by-tournaments":
+            try:
+                error=json.loads(reason).get("error", {})
+                if isinstance(error, dict) and exc.code==404:
+                    no_fixtures=error.get("code")=="FIXTURE_NOT_FOUND"
+            except (ValueError, AttributeError):
+                pass
+            if (exc.code==400 and "Invalid bookmaker specified" in reason
+                    and "does not have any fixtures available" in reason):
+                no_fixtures=True
+        if no_fixtures:
             print("Sin encuentros en la fuente:",params.get("bookmaker"))
             return []
         raise RuntimeError("OddsPapi HTTP " + str(exc.code) + " en " + endpoint + " · " + reason[:380]) from None
