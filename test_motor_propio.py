@@ -262,6 +262,10 @@ class EndToEndTests(unittest.TestCase):
         raw_b=sample_html(price="1.80").replace(
             '<span class="odds-away">1.80</span>',
             '<span class="odds-away">3.80</span>')
+        # Usamos un inicio futuro relativo para que la prueba siga siendo válida en 2027.
+        future=(datetime.now(timezone.utc)+timedelta(days=2)).isoformat()
+        raw_a=raw_a.replace(START.isoformat(),future)
+        raw_b=raw_b.replace(START.isoformat(),future)
         # Mejor cuota local de Winamax, visitante de Codere,
         # empate de una de las dos; ambos precios extraídos del HTML.
         with patch("motor_propio.web.fetch_page",side_effect=[raw_a,raw_b]), \
