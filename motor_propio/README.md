@@ -6,7 +6,7 @@ una cuota confirmada disponible para apostar.
 
 ## Estado comprobado
 
-- 44 pruebas automáticas del motor original superadas (incluidas 1X2, ganador,
+- 49 pruebas automáticas del motor original superadas (incluidas 1X2, ganador,
   totales de línea x.5, comprobación de cuotas, mercados incompatibles, fechas,
   resultados incompletos, contenido HTML ambiguo y páginas de acceso bloqueado).
 - Lector HTML de contenido estático o generado con JavaScript mediante Playwright
@@ -80,5 +80,7 @@ Se prohíben líneas con posible devolución o reglas indeterminadas.
    suspendidas ni anticuadas.
 6. Solo entonces activar alertas filtradas por casas en Telegram.
 
-Con el plan gratuito de OddsPapi los créditos son limitados y se reservan
-solicitudes. No se contratan servicios de pago sin autorización.
+En nuestra cuenta gratuita OddsPapi requiere exactamente UNA casa por consulta
+odds-by-tournaments (error HTTP 400 al intentar agrupar dos), aunque otros planes
+y la documentación general admitan varios operadores. Se siguen reservando
+créditos y no se contratan servicios de pago sin autorización.
