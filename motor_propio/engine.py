@@ -25,6 +25,21 @@ MARKETS = {
     ("tennis", "winner:completed_match"): ("1", "2"),
     ("tennis", "winner:retirement_counts"): ("1", "2"),
 }
+def market_outcomes(sport: str, market: str):
+    predefined = MARKETS.get((sport,market))
+    if predefined:
+        return predefined
+    # Total de goles/puntos con línea x.5: sin empate/push.
+    # Las líneas y el periodo forman parte de la clave de mercado.
+    match = re.fullmatch(r"total:(regulation|including_ot):(\d{1,3}\.5)",market)
+    if match and sport in ("soccer","basketball","american_football"):
+        period=match.group(1)
+        if (sport=="soccer" and period!="regulation" or
+                sport in ("basketball","american_football") and period!="including_ot"):
+            return None
+        return ("OVER","UNDER")
+    return None
+
 CENT = Decimal("0.01")
 MIN_ROI = Decimal("0.5")
 MAX_QUOTE_AGE_SECONDS = 180
@@ -84,7 +99,7 @@ class Quote:
     def __post_init__(self):
         if not re.fullmatch(r"[a-z0-9][a-z0-9.-]{2,64}", self.book):
             raise BadQuote("Identificador de casa inválido")
-        expected = MARKETS.get((self.sport, self.market))
+        expected = market_outcomes(self.sport, self.market)
         if not expected:
             raise BadQuote("Mercado, deporte o reglas de liquidación no validados")
         if not 2 <= len(token(self.home)) <= 90 or not 2 <= len(token(self.away)) <= 90:
@@ -185,7 +200,7 @@ def opportunities(quotes: list[Quote], now=None, bankroll=Decimal("100.00")):
             # Rechaza múltiples cuotas ambiguas de la misma casa/mercado.
             if len({q.book for q in matched}) != len(matched):
                 continue
-            labels = MARKETS[(base.sport,base.market)]
+            labels = market_outcomes(base.sport,base.market)
             best_by_books={}
             for selection in product(matched,repeat=len(labels)):
                 distinct=frozenset(q.book for q in selection)
@@ -204,7 +219,7 @@ def opportunities(quotes: list[Quote], now=None, bankroll=Decimal("100.00")):
                         for (q,label),stake in zip(chosen,stakes)]
                 best_by_books[distinct]={
                     "sport":base.sport,"home":base.home,"away":base.away,
-                    "kickoff":base.kickoff.isoformat(),"market":base.market,
+                    "kickoff":min(q.kickoff for q in matched).isoformat(),"market":base.market,
                     "books":sorted(distinct),"offers":offers,
                     "bankroll":str(bankroll),"profit":str(profit),
                     "roi_percent":str(roi.quantize(Decimal("0.001"))),
