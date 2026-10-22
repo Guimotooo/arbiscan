@@ -1,0 +1,48 @@
+name: ArbiiScan - comprobar lote de casas en OddsPapi
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/probar_lote_oddspapi.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar solicitud de dos casas en lote
+        env:
+          ODDS_PAPI_KEY: ${{ secrets.ODDS_PAPI_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import datetime,timezone
+          from fuentes_es.oddspapi_multisport import api,choose_tournaments
+          from fuentes_es.oddspapi import remaining_quota
+          key=os.getenv("ODDS_PAPI_KEY","")
+          if not key:
+              print("Sin API key");raise SystemExit
+          before=remaining_quota(api("account",{},key))
+          print("Créditos restantes:",before)
+          if before<50:raise SystemExit
+          tournaments=api("tournaments",{"sportId":10,"language":"es"},key)
+          ids=choose_tournaments(tournaments,datetime.now(timezone.utc))
+          if not ids:raise SystemExit
+          data=api("odds-by-tournaments",{
+              "tournamentIds":str(ids[0]),"bookmakers":"bet365.es,winamax.es",
+              "language":"es","verbosity":3
+          },key)
+          events=data if isinstance(data,list) else data.get("data",[])
+          counts={"bet365.es":0,"winamax.es":0,"ambas":0}
+          for row in events:
+              books=row.get("bookmakerOdds") or {}
+              for slug in ("bet365.es","winamax.es"):
+                  if slug in books:counts[slug]+=1
+              if all(slug in books for slug in ("bet365.es","winamax.es")):counts["ambas"]+=1
+          print("Cantidad de eventos:",len(events))
+          print("Cuotas en lote (casas por evento):",counts)
+          after=remaining_quota(api("account",{},key))
+          print("Créditos consumidos según contador:",before-after)
+          PY
