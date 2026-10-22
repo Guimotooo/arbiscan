@@ -121,6 +121,13 @@ export default {
   async fetch(request,env){
     const path=new URL(request.url).pathname;
     if(request.method==='GET'&&path==='/health')return new Response('ArbiiScan webhook disponible');
+    if(request.method==='GET'&&path==='/scan-status'){
+      if(!env.BROADCAST_SECRET||!env.SUBSCRIBERS)return json({error:'No configurado'},503);
+      if(request.headers.get('Authorization')!=='Bearer '+String(env.BROADCAST_SECRET).trim())
+        return json({error:'No autorizado'},403);
+      const raw=await env.SUBSCRIBERS.get('system:last_scan');
+      return json(raw?JSON.parse(raw):{state:'unavailable'});
+    }
     if(request.method==='POST'&&path==='/scan-status'){
       if(!env.BROADCAST_SECRET||!env.SUBSCRIBERS)return json({error:'No configurado'},503);
       if(request.headers.get('Authorization')!=='Bearer '+String(env.BROADCAST_SECRET).trim())
