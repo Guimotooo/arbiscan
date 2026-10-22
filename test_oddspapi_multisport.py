@@ -116,6 +116,13 @@ class Tests(unittest.TestCase):
         self.assertEqual(len(selected),5)
         self.assertEqual(len(set(selected)),5)
         self.assertNotEqual(selected,choose_tournaments(t,NOW+timedelta(days=1)))
+    def test_two_daily_scans_visit_different_tournaments(self):
+        t=[{"tournamentId":i,"upcomingFixtures":1} for i in range(1,31)]
+        morning=choose_tournaments(t,NOW.replace(hour=7))
+        evening=choose_tournaments(t,NOW.replace(hour=18))
+        self.assertEqual(len(set(morning)),5)
+        self.assertEqual(len(set(evening)),5)
+        self.assertTrue(set(morning).isdisjoint(set(evening)))
     def test_empty_tournaments(self):
         self.assertEqual(choose_tournaments([{"tournamentId":2,"futureFixtures":0}],NOW),[])
 if __name__=="__main__":unittest.main()
