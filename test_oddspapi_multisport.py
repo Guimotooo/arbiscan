@@ -23,7 +23,7 @@ def fixture(sport=SPORTS[0]):
       "codere.es":book([1.5,2.7,3.2] if is3 else [1.5,1.9]),
     }
     return {"fixtureId":"x1","sportId":sid,"statusId":0,"tournamentId":17,
-            "startTime":(NOW+timedelta(days=1)).isoformat(),
+            "startTime":(NOW+timedelta(days=1)).isoformat(),"updatedAt":NOW.isoformat(),
             "participant1Id":1,"participant2Id":2,
             "participant1Name":"Equipo A","participant2Name":"Equipo B",
             "bookmakerOdds":odds}
