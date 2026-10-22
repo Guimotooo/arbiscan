@@ -60,7 +60,7 @@ def validate_profile(value):
     if outcomes is None:
         raise BadQuote("Mercado o reglas no validados")
     selectors=value.get("selectors")
-    required={"home","away","kickoff",*outcomes}
+    required={"home","away","kickoff","market_heading",*outcomes}
     if not isinstance(selectors,dict) or set(selectors)!=required:
         raise BadQuote("Se requieren selectores únicos de participantes, hora y todas las cuotas")
     for target,spec in selectors.items():
@@ -71,6 +71,15 @@ def validate_profile(value):
                 not 1<=len(spec["css"])<=180 or
                 spec.get("attribute","text") not in ("text","datetime","content","data-odds","aria-label")):
             raise BadQuote("Selector no permitido: "+str(target))
+    scope=value.get("market_scope")
+    label=value.get("market_label")
+    if not isinstance(scope,str) or not 1<=len(scope)<=180:
+        raise BadQuote("Falta CSS del contenedor específico del mercado")
+    if not isinstance(label,str) or not 3<=len(label)<=100:
+        raise BadQuote("Falta el título exacto del mercado")
+    wait_ms=value.get("wait_ms",2500)
+    if type(wait_ms) is not int or not 0<=wait_ms<=8000:
+        raise BadQuote("Tiempo de espera fuera de rango")
     if value.get("mode") not in ("html","browser"):
         raise BadQuote("Modo requerido: html o browser")
     return value
@@ -106,8 +115,16 @@ def parse_html(html: str | bytes, profile: dict, observed_at=None) -> Quote:
     home=_select_text(document,s["home"])
     away=_select_text(document,s["away"])
     start=_select_text(document,s["kickoff"])
+    scopes=document.css(profile["market_scope"])
+    if len(scopes)!=1:
+        raise BadQuote("Contenedor de mercado ausente o repetido")
+    container=scopes[0]
+    heading=_select_text(container,s["market_heading"])
+    from .engine import token
+    if token(heading)!=token(profile["market_label"]):
+        raise BadQuote("Las cuotas no pertenecen al mercado esperado")
     labels=market_outcomes(profile["sport"],profile["market"])
-    prices={name:decimal_odds(_select_text(document,s[name])) for name in labels}
+    prices={name:decimal_odds(_select_text(container,s[name])) for name in labels}
     return Quote(
         book=profile["book"],sport=profile["sport"],home=home,away=away,
         kickoff=aware(start),market=profile["market"],prices=prices,
@@ -145,7 +162,7 @@ def fetch_page(profile):
             if response is None or response.status!=200:
                 raise BadQuote("Navegación no disponible, HTTP "+
                                str(response.status if response else 0))
-            page.wait_for_timeout(2500)
+            page.wait_for_timeout(profile.get("wait_ms",2500))
             _domain(page.url,book)
             return page.content()
         finally:
