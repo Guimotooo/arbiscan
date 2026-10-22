@@ -28,7 +28,9 @@ def profile(market="1x2:regulation", sport="soccer"):
         "book":"winamax.es","url":"https://www.winamax.es/sports-betting/match/1234",
         "sport":sport,"market":market,"mode":"html",
         "permission_confirmed":True,
+        "market_scope":".market-box","market_label":"Resultado final",
         "selectors":{
+            "market_heading":".market-heading",
             "home":".home","away":".away",
             "kickoff":{"css":"time.kickoff","attribute":"datetime"},
             "1":".odds-home","X":".odds-draw","2":".odds-away",
@@ -41,11 +43,12 @@ def sample_html(price="3,60",double=False, blocked=False):
             '<span class="home">Cambrian United</span>'+
             '<span class="away">Airbus UK Broughton</span>'+
             '<time class="kickoff" datetime="'+START.isoformat()+'"></time>'+
+            '<section class="market-box"><h2 class="market-heading">Resultado final</h2>'+ 
             '<span class="odds-home" data-odds="3.60">'+price+'</span>'+
             '<span class="odds-draw">3.80</span>'+
             '<span class="odds-away">1.80</span>'+
             ('<span class="odds-home">3.60</span>' if double else '')+
-            '</body></html>')
+            '</section></body></html>')
 
 def provider_fixture(sport_id=10,updated=NOW):
     mid,ids=(("101",("101","102","103")) if sport_id==10 else
@@ -205,6 +208,13 @@ class WebParserTests(unittest.TestCase):
         with self.assertRaises(BadQuote):parse_html(sample_html(double=True),profile(),NOW)
     def test_reject_false_price(self):
         with self.assertRaises(BadQuote):parse_html(sample_html(price="2/1"),profile(),NOW)
+    def test_market_heading_must_match(self):
+        with self.assertRaises(BadQuote):
+            parse_html(sample_html().replace("Resultado final","Total de goles"),profile(),NOW)
+    def test_market_scope_must_be_unique(self):
+        p=profile()
+        with self.assertRaises(BadQuote):
+            parse_html(sample_html().replace('class="market-box"','class="unexpected"'),p,NOW)
     def test_reject_captcha(self):
         with self.assertRaises(BadQuote):parse_html(sample_html(blocked=True),profile(),NOW)
     def test_reject_not_authorized(self):
