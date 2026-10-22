@@ -115,11 +115,24 @@ def run_provider_audit():
         by_book[book]=api("odds-by-tournaments",{**params,"bookmaker":book},key)
     merged=join_results(by_book)
     parsed=convert_fixtures(merged,datetime.now(timezone.utc))
-    fresh=sum(q.valid_at(datetime.now(timezone.utc)) for q in parsed)
+    from collections import Counter
+    checked_at=datetime.now(timezone.utc)
+    fresh_rows=[q for q in parsed if q.valid_at(checked_at)]
+    by_book=Counter(q.book for q in parsed)
+    fresh_by_book=Counter(q.book for q in fresh_rows)
     print("Eventos de fútbol consultados:",len(merged))
     print("Cotizaciones completas aceptadas como registros:",len(parsed))
-    print("Cotizaciones suficientemente recientes para alertas:",fresh)
-    _render(opportunities(parsed,datetime.now(timezone.utc)),
+    print("Cotizaciones con changedAt de TODAS las selecciones dentro de 1 hora:",len(fresh_rows))
+    for book in sorted(by_book):
+        print(" -",book,"total:",by_book[book],"recientes:",fresh_by_book[book])
+    print("Muestra de hasta 8 cotizaciones reales (lectura de proveedor, NO de cupón):")
+    for q in sorted(parsed,key=lambda x:(not x.valid_at(checked_at),x.kickoff,x.book))[:8]:
+        stamp=q.provider_updated_at.isoformat() if q.provider_updated_at else "SIN FECHA"
+        print(" -",q.book,q.home,"vs",q.away,
+              "|",q.market,"|",",".join(k+"="+str(v) for k,v in q.prices.items()),
+              "| cambio más antiguo:",stamp,
+              "| reciente:",q.valid_at(checked_at))
+    _render(opportunities(parsed,checked_at),
             "ARBITRAJES MATEMÁTICOS DE FUENTE LICENCIADA (NO CONFIRMADOS EN CUPONES)")
     print("No se enviaron avisos: prueba de una sola lectura de OddsPapi.")
 
