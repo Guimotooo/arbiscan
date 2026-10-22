@@ -1,0 +1,51 @@
+name: ArbiiScan - verificar scraper Bet365 ES independiente
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/verificar_scraper_bet365_real.yml'
+permissions:
+  contents: read
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Obtener fuente independiente fijada a version comprobada
+        uses: actions/checkout@v4
+        with:
+          repository: sergiydev09/primo-soccer-stats
+          ref: 4661617374758df712f1bc67557169924ae736b5
+          persist-credentials: false
+      - name: Instalar Chrome y dependencias minimas
+        run: |
+          python -m pip install playwright tqdm
+          python -m playwright install --with-deps chromium
+      - name: Una sola consulta publica, sin sesion privada ni alertas
+        shell: bash
+        run: |
+          set +e
+          timeout 170s python -u bet365_scraper.py cuotas --league spain --partidos 1 --tabs "Resultado" --rapido --headless --out /tmp/arbiscan_bet365_probe.csv > /tmp/arbiscan_probe.log 2>&1
+          code=$?
+          echo "Código de salida del scraper: $code"
+          python - <<'PY'
+          from pathlib import Path
+          import csv
+          p=Path("/tmp/arbiscan_bet365_probe.csv")
+          if p.exists():
+              with p.open(encoding="utf-8-sig",newline="") as h:
+                  rows=list(csv.DictReader(h))
+              valid=[row for row in rows if row.get("cuota","").strip() and row.get("fixture_id","").strip() and row.get("mercado","").strip()]
+              print("RESULTADO DE DATOS BET365: filas totales",len(rows))
+              print("RESULTADO DE DATOS BET365: cuotas con partido y mercado",len(valid))
+              if valid:
+                  print("EJEMPLO REAL:", {k:valid[0].get(k) for k in ("scrape_ts","fecha","local","visitante","mercado","seleccion","cuota")})
+          else:
+              print("RESULTADO DE DATOS BET365: SIN CSV")
+          t=Path("/tmp/arbiscan_probe.log").read_text(errors="replace")
+          safe=[line for line in t.splitlines() if any(v in line.lower() for v in ("abriendo bet365","no se han encontrado partidos","no se ha extraído ninguna cuota","error","bloque","timeout","partidos:","partido","cuotas","lo sentimos"))]
+          print("Diagnóstico del scraper (máximo 18 líneas):")
+          for line in safe[-18:]:
+              print(line[:240])
+          PY
+          exit 0
