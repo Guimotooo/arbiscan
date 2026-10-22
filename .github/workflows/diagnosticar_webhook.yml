@@ -1,6 +1,11 @@
 name: ArbiiScan - diagnostico webhook
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'worker/arbiscan.mjs'
+      - '.github/workflows/diagnosticar_webhook.yml'
+      - 'scripts/diagnosticar_webhook.py'
 permissions:
   contents: read
 jobs:
