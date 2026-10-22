@@ -125,4 +125,24 @@ class Tests(unittest.TestCase):
         self.assertTrue(set(morning).isdisjoint(set(evening)))
     def test_empty_tournaments(self):
         self.assertEqual(choose_tournaments([{"tournamentId":2,"futureFixtures":0}],NOW),[])
+    def test_no_fixtures_404_is_empty_not_fatal(self):
+        from fuentes_es.oddspapi_multisport import api
+        from urllib.error import HTTPError
+        from io import BytesIO
+        from unittest.mock import Mock
+        payload=b'{"error":{"code":"FIXTURE_NOT_FOUND","message":"No fixtures found"}}'
+        error=HTTPError("https://api.oddspapi.io/v4/odds-by-tournaments",404,"Not Found",{},BytesIO(payload))
+        opener=Mock(side_effect=error)
+        self.assertEqual(api("odds-by-tournaments",{"bookmaker":"bet365.es"},"safe-key",opener),[])
+        self.assertEqual(opener.call_count,1)
+    def test_unrelated_404_is_not_swallowed(self):
+        from fuentes_es.oddspapi_multisport import api
+        from urllib.error import HTTPError
+        from io import BytesIO
+        from unittest.mock import Mock
+        payload=b'{"error":{"code":"ACCESS_DENIED","message":"Denied"}}'
+        error=HTTPError("https://api.oddspapi.io/v4/odds-by-tournaments",404,"Not Found",{},BytesIO(payload))
+        with self.assertRaisesRegex(RuntimeError,"OddsPapi HTTP 404"):
+            api("odds-by-tournaments",{"bookmaker":"bet365.es"},"safe-key",Mock(side_effect=error))
+
 if __name__=="__main__":unittest.main()
