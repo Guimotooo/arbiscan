@@ -1,4 +1,5 @@
 import unittest
+import random
 from datetime import datetime,timedelta,timezone
 from decimal import Decimal
 from unittest.mock import patch
@@ -180,6 +181,21 @@ class EngineTests(unittest.TestCase):
     def test_reject_same_instant_or_delayed_confirmation(self):
         with self.assertRaises(BadQuote):confirm([],[],NOW,NOW)
         with self.assertRaises(BadQuote):confirm([],[],NOW,NOW+timedelta(minutes=5))
+    def test_randomized_stake_rounding_never_claims_false_profit(self):
+        rng=random.Random(261022)
+        for index in range(200):
+            pa={x:str(round(rng.uniform(1.2,7.0),2)) for x in ("1","X","2")}
+            pb={x:str(round(rng.uniform(1.2,7.0),2)) for x in ("1","X","2")}
+            events=opportunities([
+                quote("bet365.es",pa),quote("winamax.es",pb)],NOW)
+            for item in events:
+                self.assertEqual(sum(Decimal(x["stake"]) for x in item["offers"]),Decimal("100"))
+                self.assertGreaterEqual(
+                    min(Decimal(x["stake"])*Decimal(x["price"])
+                        for x in item["offers"]),Decimal("100.50"))
+                self.assertGreater(len(set(x["book"] for x in item["offers"])),1)
+    def test_market_anchor_blocks_sport_mismatch(self):
+        self.assertIsNone(market_outcomes("tennis","1x2:regulation"))
     def test_deterministic_fingerprint(self):
         a=quote("bet365.es",SOCCER_A);b=quote("winamax.es",SOCCER_B)
         opp=opportunities([a,b],NOW)[0]
