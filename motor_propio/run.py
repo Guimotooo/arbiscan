@@ -4,6 +4,7 @@ python -m motor_propio.run --demo
 python -m motor_propio.run --feed example.json
 python -m motor_propio.run --profiles scraping_es/profiles_local.json
 python -m motor_propio.run --odds-papi-audit
+python -m motor_propio.run --direct --bankroll 100
 
 Por defecto NUNCA se mandan alertas. Para páginas públicas se requieren
 permisos de extracción confirmados; se detiene ante respuestas 403/CAPTCHA.
@@ -137,6 +138,39 @@ def run_provider_audit():
     print("No se enviaron avisos: prueba de una sola lectura de OddsPapi.")
 
 
+def run_direct(bankroll):
+    """Escáner local de conectores directos; no usa proveedores ni Telegram.
+
+    Cada adaptador debe devolver ``Quote`` con fuente ``permitted_web``.  El
+    motor conserva las mismas reglas de comparación, céntimos y ROI mínimo que
+    los otros modos, pero esta ruta no importa ni llama a OddsPapi, The Odds API
+    ni al Worker.  Una casa bloqueada o sin 1X2 se informa y se omite.
+    """
+    from fuentes_es.direct_bwin import DirectSourceUnavailable, discover as bwin_discover
+    from fuentes_es.direct_sportium import discover as sportium_discover
+    now=datetime.now(timezone.utc)
+    quotes=[]
+    try:
+        quotes.extend(bwin_discover(now))
+    except DirectSourceUnavailable as exc:
+        print("Bwin ES:",exc)
+    try:
+        quotes.extend(sportium_discover(now))
+    except DirectSourceUnavailable as exc:
+        print("Sportium ES:",exc)
+    print("Cuotas directas válidas:",len(quotes))
+    print("Bet365 ES: no incluida (bloqueo 403 comprobado; sin evasión).")
+    print("Winamax ES: no incluida (aún no hay 1X2 DOM validado).")
+    candidates=opportunities(quotes,datetime.now(timezone.utc),bankroll=bankroll)
+    _render(candidates,"ESCÁNER DIRECTO LOCAL")
+    if not candidates:
+        print("Sin arbitrajes: se requieren al menos dos casas directas con el mismo partido y mercado.")
+    else:
+        for item in candidates:
+            print(alert(item))
+    print("Telegram: desactivado en el modo --direct.")
+
+
 def main():
     parser=argparse.ArgumentParser(description="ArbiiScan motor de cuotas propio")
     sources=parser.add_mutually_exclusive_group(required=True)
@@ -144,15 +178,22 @@ def main():
     sources.add_argument("--feed",help="JSON normalizado de feed autorizado")
     sources.add_argument("--profiles",help="JSON con URLs de páginas permitidas y selectores")
     sources.add_argument("--odds-papi-audit",action="store_true")
+    sources.add_argument("--direct",action="store_true",
+                         help="solo DOM público; no usa proveedores ni Telegram")
+    parser.add_argument("--bankroll",type=float,default=100.0,
+                        help="capital para el reparto teórico en --direct")
     parser.add_argument("--send",action="store_true",
                         help="Solo para --profiles, después de dos lecturas coincidentes")
     args=parser.parse_args()
     if args.send and not args.profiles:
         parser.error("--send solo está permitido para páginas verificadas con --profiles")
+    if args.bankroll<=0 or args.bankroll>100000:
+        parser.error("--bankroll debe estar entre 0 y 100000")
     if args.demo:demo()
     elif args.feed:run_feed(args.feed)
     elif args.profiles:run_web(args.profiles,args.send)
-    else:run_provider_audit()
+    elif args.odds_papi_audit:run_provider_audit()
+    else:run_direct(args.bankroll)
 
 
 if __name__=="__main__":

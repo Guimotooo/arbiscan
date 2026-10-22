@@ -106,3 +106,13 @@ matemático y los controles de calidad ya implementados.
 Una lectura visible no demuestra autorización contractual ni aceptación en el
 cupón. Hasta disponer de dos fuentes directas permitidas con evento, reglas y
 hora compatibles, no se activará el envío de supuestos arbitrajes directos.
+
+### Escáner directo local, sin proveedores ni Telegram
+
+    ARBI_DIRECT_BWIN_ALLOWED=true ARBI_DIRECT_SPORTIUM_ALLOWED=true python -m motor_propio.run --direct --bankroll 100
+
+Este comando sólo utiliza conectores de DOM público. Nunca llama a OddsPapi,
+The Odds API, Cloudflare Worker ni Telegram. Si dos o más conectores directos
+proporcionan el mismo 1X2 con reglas compatibles, imprime en consola las cuotas
+e importes a céntimos para el capital indicado. Las casas bloqueadas o cuyos
+mercados no se puedan identificar se omiten, no se sustituyen por un proveedor.
