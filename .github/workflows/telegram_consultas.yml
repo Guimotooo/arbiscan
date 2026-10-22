@@ -6,8 +6,8 @@ on:
       - '.github/workflows/telegram_consultas.yml'
       - 'telegram_consultas.py'
       - 'test_telegram_consultas.py'
-  schedule:
-    - cron: '*/5 * * * *'
+  # Polling desactivado: el bot ya utiliza webhook en Cloudflare.
+  # No ejecutar getUpdates cada 5 min mientras setWebhook esté activo.
 permissions:
   contents: read
 concurrency:
