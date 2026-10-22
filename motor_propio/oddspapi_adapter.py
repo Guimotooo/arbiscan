@@ -37,7 +37,7 @@ def convert_fixture(fixture: dict, observed_at=None, confirm_settlement=None):
         return []
     now=aware(observed_at or datetime.now(timezone.utc))
     try:
-        fixture_updated=aware(fixture["updatedAt"]) if fixture.get("updatedAt") else None
+        # La fecha updatedAt del evento NO es la fecha de cambio de las cuotas.
         start=aware(fixture["startTime"])
     except BadQuote:
         return []
@@ -52,6 +52,7 @@ def convert_fixture(fixture: dict, observed_at=None, confirm_settlement=None):
         if not isinstance(raw,dict):
             continue
         prices={}
+        changes=[]
         valid=True
         for key,label in outcome_names.items():
             row=raw.get(key)
@@ -66,6 +67,7 @@ def convert_fixture(fixture: dict, observed_at=None, confirm_settlement=None):
                     valid=False
                     break
                 prices[label]=item["price"]
+                changes.append(change_at)
             except (BadQuote,KeyError):
                 valid=False
                 break
@@ -77,7 +79,9 @@ def convert_fixture(fixture: dict, observed_at=None, confirm_settlement=None):
                 home=str(fixture.get("participant1Name") or ""),
                 away=str(fixture.get("participant2Name") or ""),
                 kickoff=start,market=settlement,prices=prices,
-                observed_at=now,provider_updated_at=fixture_updated,
+                # La selección menos reciente determina si el mercado completo
+                # es lo bastante actual para generar oportunidades.
+                observed_at=now,provider_updated_at=min(changes),
                 source="licensed_feed",
             ))
         except BadQuote:
