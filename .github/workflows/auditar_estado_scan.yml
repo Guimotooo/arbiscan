@@ -1,0 +1,37 @@
+name: ArbiiScan - verificar estado del escaner en Cloudflare
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/auditar_estado_scan.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Comprobar estado guardado sin enviar avisos
+        env:
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+        run: |
+          python - <<'PY'
+          import json,os
+          from urllib.request import Request,urlopen
+          secret=os.getenv("WEBHOOK_SECRET","").strip()
+          if not secret:
+              raise SystemExit("Falta secreto de difusion")
+          url="https://arbiscan.dame-un-like-porfavor.workers.dev/scan-status"
+          req=Request(url,headers={"Authorization":"Bearer "+secret})
+          with urlopen(req,timeout=20) as r:
+              status=json.load(r)
+          assert status.get("source")=="OddsPapi", "Fuente no reconocida"
+          assert status.get("state") in ("running","finished","failed","skipped"), "Sin lectura registrada"
+          assert isinstance(status.get("fixture_count"),int)
+          assert isinstance(status.get("candidates"),int)
+          assert isinstance(status.get("confirmed"),int)
+          assert isinstance(status.get("sent"),int)
+          assert isinstance(status.get("books"),list)
+          print("ESTADO REAL ALMACENADO:")
+          print(json.dumps(status,ensure_ascii=False,indent=2))
+          PY
