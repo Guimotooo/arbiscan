@@ -11,7 +11,29 @@ https://t.me/ArbiiScan_bot
 - /start: selecciona las casas españolas que utilizas.
 - /casas: modifica las casas.
 - /estado: consulta preferencias.
+- /escaneo: muestra el último escaneo real y sus cifras (no necesita indicar un partido).
 - /stop: cancela alertas.
+
+## Referencia externa Cuotiva · Alertas (22/10/2026)
+
+La captura de Telegram de `@CuotivaAlertasBot` permite observar registro
+de acceso sujeto a autorización, selección de casas y una mención a
+`Cuotiva Cartera`. No revela el código ni la procedencia de las cuotas:
+no se debe afirmar que emplea scraping de Bet365 ni que haya demostrado
+un arbitraje real. Las webs llamadas Cuotiva encontradas en búsquedas
+públicas tratan de cobros a plazos, sin prueba de relación con ese bot.
+
+ArbiiScan ya tiene selecciones por casa y alertas automáticas. Se añade
+`/escaneo`, con estado real guardado por el propio escáner en Cloudflare:
+horario UTC, fuente, casas, partidos obtenidos, candidatos y avisos enviados.
+El registro explicita `OddsPapi`, porque no equivale a extracción directa.
+
+La API oficial de Betfair Exchange española es una alternativa de fuente
+directa y ya tiene un conector experimental en `fuentes_es/betfair_exchange.py`,
+pero requiere claves y sesión del titular. Su App Key gratuita de desarrollo
+devuelve datos retrasados y NO permite certificar cuotas actuales. Betfair
+Exchange y Betfair Sportsbook son productos diferentes; las comisiones y la
+liquidez del Exchange requieren comprobación. No se crean alertas falsas.
 
 ## Componentes
 
