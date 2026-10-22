@@ -17,6 +17,7 @@ from urllib.error import HTTPError, URLError
 
 from scanner import allocate
 from fuentes_es.oddspapi import utc, remaining_quota, broadcast_alert, BASE
+from fuentes_es.scan_status import publish_scan_status
 
 BOOKS = ("bet365.es", "winamax.es", "betfair.es", "bwin.es", "codere.es",
          "888sport.es", "betway.es", "goldenpark.es", "leovegas.es", "paf.es", "pokerstars.es")
@@ -287,16 +288,21 @@ def run():
     worker=os.getenv("ARBI_WORKER_URL","").strip()
     secret=os.getenv("WEBHOOK_SECRET","").strip()
     books=book_selection(now,subscriber_demand(worker,secret))
+    report=lambda state,**kw: publish_scan_status(
+        worker_url=worker,secret=secret,state=state,books=books,**kw)
+    report("running")
     print("Casas elegidas según suscriptores:",", ".join(books))
     remaining=remaining_quota(api("account",{},key))
     print("Créditos disponibles:",remaining,"Deporte de la ronda:",sport[1])
     if remaining<MIN_CREDITS_FOR_SCAN + 1 + len(books):
         print("Reserva de créditos alcanzada; no se consulta.")
+        report("skipped")
         return
     tournament_list=api("tournaments",{"sportId":sport[0],"language":"es"},key)
     ids=choose_tournaments(tournament_list,now)
     print("Torneos cubiertos en esta ronda:",len(ids))
     if not ids:
+        report("finished")
         return
     params={"tournamentIds":",".join(str(i) for i in ids),"language":"es","verbosity":3}
     first={}
@@ -308,6 +314,7 @@ def run():
     candidates=scan(data,sport,datetime.now(timezone.utc))
     print("Candidatos matemáticos:",len(candidates))
     if not candidates:
+        report("finished",fixture_count=len(data))
         return
     # Releer únicamente las casas necesarias para los candidatos, no todo
     # el catálogo inicial. La cuota se evalúa antes de nuevas solicitudes.
@@ -315,6 +322,7 @@ def run():
     spent_first=1+len(books)
     if remaining-spent_first < MIN_CREDITS_FOR_SCAN+len(needed):
         print("Sin presupuesto de confirmación.")
+        report("skipped",fixture_count=len(data),candidates=len(candidates))
         return
     time.sleep(3)
     second={}
@@ -325,17 +333,32 @@ def run():
     print("Candidatos coincidentes en dos lecturas:",len(confirmed))
     if os.getenv("ODDSPAPI_ENABLE_ALERTS")!="true":
         print("Prueba sin envío de Telegram.")
+        report("finished",fixture_count=len(data),candidates=len(candidates),
+               confirmed=len(confirmed))
         return
     worker=os.getenv("ARBI_WORKER_URL","").strip()
     secret=os.getenv("WEBHOOK_SECRET","").strip()
     if not worker or not secret:
         print("Faltan credenciales de difusión; no se envía.")
+        report("skipped",fixture_count=len(data),candidates=len(candidates),
+               confirmed=len(confirmed))
         return
+    sent=0
     for item in confirmed[:MAX_ALERTS]:
         books=sorted({v["bookmaker_key"] for v in item["offers"]})
         event_key="multi:"+hashlib.sha256(repr((item["fixture_id"],item["sport"],item["market"],item["start"])).encode()).hexdigest()[:24]
         result=broadcast_alert(worker,secret,format_alert(item),event_key,books)
         print("Difusión:",result)
+        if isinstance(result,dict):
+            sent+=int(result.get("sent",0))
+    report("finished",fixture_count=len(data),candidates=len(candidates),
+           confirmed=len(confirmed),sent=sent)
 
 if __name__=="__main__":
-    run()
+    try:
+        run()
+    except Exception:
+        publish_scan_status(
+            worker_url=os.getenv("ARBI_WORKER_URL",""),
+            secret=os.getenv("WEBHOOK_SECRET",""),state="failed")
+        raise
