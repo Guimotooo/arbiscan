@@ -1,0 +1,20 @@
+name: ArbiiScan - comprobar DOM público Bwin ES
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # No es un escáner recurrente ni puede emitir Telegram.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar el conversor DOM sin consultar Bwin
+        run: python -m unittest -v test_direct_bwin.py
+      - run: python -m pip install playwright
+      - run: python -m playwright install --with-deps chromium
+      - name: Descubrir 1X2 visibles únicamente si existe autorización expresa
+        env:
+          ARBI_DIRECT_BWIN_ALLOWED: ${{ vars.ARBI_DIRECT_BWIN_ALLOWED }}
+        run: python -m fuentes_es.direct_bwin

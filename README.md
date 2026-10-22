@@ -49,6 +49,10 @@ liquidez del Exchange requieren comprobación. No se crean alertas falsas.
   y distribución de alertas vía Cloudflare.
 - **scraping_es/** — pruebas anteriores de lectores de páginas con Scrapling y
   Playwright; no se han activado como fuente de alertas.
+- **fuentes_es/direct_bwin.py** — descubrimiento DOM-only de partidos y 1X2
+  visibles en Bwin ES. No usa APIs internas, sesión ni evasión y exige una
+  autorización explícita antes de abrir la página. Por sí solo no puede crear
+  un arbitraje ni enviar Telegram.
 - **test_motor_propio.py** — pruebas de cálculo y extracción (51 verificadas).
 - **.github/workflows/motor_propio_tests.yml** — tests del motor en GitHub Actions.
 
@@ -106,3 +110,34 @@ Esta comprobación consume créditos del plan gratuito y no envía avisos.
 El objetivo es incorporar adaptadores de fuentes permitidas uno por uno,
 verificando sus precios antes de generar alertas, y reutilizando el motor
 matemático y los controles de calidad ya implementados.
+
+## Estado de la extracción directa (22/10/2026)
+
+- **Bet365 ES:** Chromium ordinario y HTTP público responden 403 con una página
+  de bloqueo Cloudflare. No se realizan reintentos de evasión, CAPTCHA, proxy,
+  sesión ni endpoints internos. No es una fuente operativa.
+- **Winamax ES:** la ruta comprobada devuelve una aplicación JavaScript, pero
+  todavía no existe un selector 1X2 estable ni una segunda fuente con la que
+  validar cada evento. No es una fuente operativa.
+- **Bwin ES:** una navegación Chromium ordinaria mostró tarjetas públicas de
+  fútbol con enlaces de evento, equipos, hora y 1X2. El nuevo conector lee sólo
+  esos nodos visibles y rechaza fechas o mercados ambiguos. El workflow manual
+  `probar_bwin_directo.yml` exige `ARBI_DIRECT_BWIN_ALLOWED=true` como variable
+  del repositorio; no se agenda ni difunde alertas.
+
+Una lectura visible no demuestra autorización contractual ni aceptación en el
+cupón. Hasta disponer de dos fuentes directas permitidas con evento, reglas y
+hora compatibles, no se activará el envío de supuestos arbitrajes directos.
+
+### Escáner directo local, sin proveedores ni Telegram
+
+    ARBI_DIRECT_BWIN_ALLOWED=true ARBI_DIRECT_SPORTIUM_ALLOWED=true python -m motor_propio.run --direct --bankroll 100 --max-events 200
+
+Este comando sólo utiliza conectores de DOM público. Nunca llama a OddsPapi,
+The Odds API, Cloudflare Worker ni Telegram. Si dos o más conectores directos
+proporcionan el mismo 1X2 con reglas compatibles, imprime en consola las cuotas
+e importes a céntimos para el capital indicado. Las casas bloqueadas o cuyos
+mercados no se puedan identificar se omiten, no se sustituyen por un proveedor.
+Actualmente recorre fútbol, tenis y baloncesto; sólo acepta 1X2 de 90 minutos
+en fútbol y ganador del partido con las reglas explícitas del motor para tenis
+y baloncesto.
