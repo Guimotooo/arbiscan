@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from motor_propio.engine import (
     Quote,BadQuote,aware,token,decimal_odds,from_record,
-    opportunities,confirm,fingerprint,alert,
+    opportunities,confirm,fingerprint,alert,market_outcomes,
 )
 from motor_propio.web import validate_profile,parse_html,load_profiles
 from motor_propio.oddspapi_adapter import convert_fixture,convert_fixtures
@@ -137,6 +137,31 @@ class EngineTests(unittest.TestCase):
         a=quote("bet365.es",{"1":"2.20","2":"1.80"},"basketball","winner:including_ot")
         b=quote("winamax.es",{"1":"1.80","2":"2.20"},"basketball","winner:including_ot")
         self.assertTrue(opportunities([a,b],NOW))
+    def test_total_half_point_markets(self):
+        a=quote("bet365.es",{"OVER":"2.20","UNDER":"1.75"},
+                "soccer","total:regulation:2.5")
+        b=quote("winamax.es",{"OVER":"1.75","UNDER":"2.20"},
+                "soccer","total:regulation:2.5")
+        found=opportunities([a,b],NOW)
+        self.assertEqual(len(found),1)
+        self.assertEqual({i["outcome"] for i in found[0]["offers"]},{"OVER","UNDER"})
+    def test_refuse_total_different_lines_and_settlement(self):
+        a=quote("bet365.es",{"OVER":"2.20","UNDER":"1.75"},
+                "soccer","total:regulation:2.5")
+        b=quote("winamax.es",{"OVER":"1.75","UNDER":"2.20"},
+                "soccer","total:regulation:3.5")
+        self.assertFalse(opportunities([a,b],NOW))
+        self.assertIsNone(market_outcomes("soccer","total:including_ot:2.5"))
+        self.assertIsNone(market_outcomes("basketball","total:regulation:224.5"))
+    def test_reject_push_line_or_nonstandard_market(self):
+        for line in ("total:regulation:3","total:regulation:2.25","total:regulation:-2.5"):
+            with self.subTest(line=line):
+                with self.assertRaises(BadQuote):
+                    quote("bet365.es",{"OVER":"2.2","UNDER":"1.8"},"soccer",line)
+    def test_same_event_mild_start_variation_deduplicated(self):
+        a=quote("bet365.es",SOCCER_A)
+        b=quote("winamax.es",SOCCER_B,start=START+timedelta(seconds=90))
+        self.assertEqual(len(opportunities([a,b],NOW)),1)
     def test_individual_book_pairs(self):
         c=quote("codere.es",{"1":"3.40","X":"3.50","2":"1.80"})
         opp=opportunities([quote("bet365.es",SOCCER_A),quote("winamax.es",SOCCER_B),c],NOW)
