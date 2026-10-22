@@ -275,6 +275,30 @@ class EndToEndTests(unittest.TestCase):
         results=opportunities(quotes,datetime.now(timezone.utc))
         self.assertTrue(results)
         self.assertTrue({"winamax.es","codere.es"}.issubset(results[0]["books"]))
+    def test_blocked_source_is_skipped_other_houses_continue(self):
+        a=profile()
+        b=profile();b["book"]="codere.es";b["url"]="https://www.codere.es/match/321"
+        d=profile();d["book"]="bwin.es";d["url"]="https://www.bwin.es/match/321"
+        future=(datetime.now(timezone.utc)+timedelta(days=2)).isoformat()
+        middle=sample_html(price="3.8").replace(START.isoformat(),future)
+        last=(sample_html(price="1.8")
+              .replace('<span class="odds-away">1.80</span>',
+                       '<span class="odds-away">3.80</span>')
+              .replace(START.isoformat(),future))
+        errors=[]
+        with patch("motor_propio.web.fetch_page",
+                   side_effect=[BadQuote("HTTP 403"),middle,last]), \
+             patch("motor_propio.web.time.sleep"):
+            records=scrape_profiles([a,b,d],on_error=lambda *args:errors.append(args))
+        self.assertEqual(len(errors),1)
+        self.assertEqual(len(records),2)
+        self.assertEqual({q.book for q in records},{"codere.es","bwin.es"})
+        self.assertTrue(opportunities(records,datetime.now(timezone.utc)))
+    def test_bad_source_config_stops_before_network(self):
+        p=profile();p["permission_confirmed"]=False
+        with patch("motor_propio.web.fetch_page") as fetch:
+            with self.assertRaises(BadQuote):scrape_profiles([p])
+            fetch.assert_not_called()
     def test_reject_http403_without_retry(self):
         from urllib.error import HTTPError
         from io import BytesIO
