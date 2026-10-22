@@ -73,22 +73,37 @@ def choose_sport(now):
 def choose_tournaments(rows, now):
     if not isinstance(rows, list):
         raise ValueError("Respuesta de torneos no válida")
-    eligible = sorted({
-        int(row["tournamentId"])
-        for row in rows
-        if isinstance(row, dict)
-        and str(row.get("tournamentId", "")).isdigit()
-        and int(row.get("futureFixtures") or 0) + int(row.get("upcomingFixtures") or 0) > 0
-    })
-    if not eligible:
+    # El catálogo de torneos no es específico de cada casa; sirve como
+    # señal de actividad, no prueba de cuotas disponibles en Bet365/Winamax.
+    activity={}
+    for row in rows:
+        if not isinstance(row,dict) or not str(row.get("tournamentId","")).isdigit():
+            continue
+        try:
+            upcoming=int(row.get("upcomingFixtures") or 0)
+            future=int(row.get("futureFixtures") or 0)
+        except (ValueError,TypeError):
+            continue
+        if upcoming<0 or future<0 or upcoming+future<=0:
+            continue
+        tid=int(row["tournamentId"])
+        activity[tid]=max(activity.get(tid,(0,0)),(upcoming,future))
+    if not activity:
         return []
-    # Rota por todas las competiciones con partidos; nunca por popularidad.
-    k=min(MAX_LEAGUES_PER_SCAN, len(eligible))
-    # Dos rondas diarias: explorar otros torneos en la segunda en lugar de
-    # volver a consultar exactamente las mismas competiciones.
-    slot = 0 if now.hour < 12 else 1
-    index=(now.date().toordinal()*2 + slot)*k % len(eligible)
-    return [eligible[(index+i) % len(eligible)] for i in range(k)]
+    # Priorizar 3 torneos con más encuentros próximos, sin clasificarlos
+    # por fama. Rotar los otros 2 para ampliar cobertura día/tarde.
+    ranked=sorted(activity,key=lambda tid:(-activity[tid][0],-activity[tid][1],tid))
+    k=min(MAX_LEAGUES_PER_SCAN,len(ranked))
+    top_count=min(3,k)
+    fixed=ranked[:top_count]
+    slots=k-top_count
+    if slots==0:
+        return fixed
+    pool=ranked[top_count:]
+    slot=0 if now.hour<12 else 1
+    index=((now.date().toordinal()*2+slot)*slots)%len(pool)
+    chosen=[pool[(index+i)%len(pool)] for i in range(slots)]
+    return fixed+chosen
 
 def join_results(per_book):
     joined={}

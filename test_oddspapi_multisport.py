@@ -122,7 +122,20 @@ class Tests(unittest.TestCase):
         evening=choose_tournaments(t,NOW.replace(hour=18))
         self.assertEqual(len(set(morning)),5)
         self.assertEqual(len(set(evening)),5)
-        self.assertTrue(set(morning).isdisjoint(set(evening)))
+        self.assertEqual(len(set(morning)&set(evening)),3)  # los tres más activos
+        self.assertTrue(set(morning[3:]).isdisjoint(evening[3:]))
+    def test_prioritize_real_upcoming_fixture_activity(self):
+        t=[
+            {"tournamentId":1,"upcomingFixtures":0,"futureFixtures":300},
+            {"tournamentId":2,"upcomingFixtures":9,"futureFixtures":10},
+            {"tournamentId":3,"upcomingFixtures":7,"futureFixtures":8},
+            {"tournamentId":4,"upcomingFixtures":4,"futureFixtures":2},
+            {"tournamentId":5,"upcomingFixtures":0,"futureFixtures":20},
+            {"tournamentId":6,"upcomingFixtures":0,"futureFixtures":25},
+        ]
+        ids=choose_tournaments(t,NOW)
+        self.assertEqual(ids[:3],[2,3,4])
+        self.assertEqual(len(ids),5)
     def test_empty_tournaments(self):
         self.assertEqual(choose_tournaments([{"tournamentId":2,"futureFixtures":0}],NOW),[])
     def test_no_fixtures_404_is_empty_not_fatal(self):
