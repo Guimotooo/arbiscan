@@ -12,11 +12,12 @@ una cuota confirmada disponible para apostar.
 - Lector HTML de contenido estático o generado con JavaScript mediante Playwright
   y Scrapling; exige selectores CSS específicos de evento y mercado.
 - Fuente JSON de feed autorizado y adaptador de cotizaciones OddsPapi.
-- Auditoría previa: 30 partidos y 41 cotizaciones de Bet365 ES y Winamax ES.
-  La versión anterior las filtraba por updatedAt del EVENTO (criterio equivocado).
-  Ahora se usa changedAt de cada selección: se exige que la más antigua del
-  mercado no tenga más de 1 hora. Falta repetir la auditoría con la clave
-  configurada para saber cuántas cumplen el nuevo criterio.
+- Auditoría posterior a la corrección, 22/10/2026: 30 partidos y 30
+  cotizaciones del proveedor (21 Bet365 ES, 9 Winamax ES); ninguna cumplió
+  una hora máxima desde changedAt de TODAS las selecciones. En la versión
+  anterior, updatedAt del EVENTO producía falsos descartes porque se refiere
+  a metadatos del partido. El criterio actual usa changedAt por selección,
+  pero no acredita disponibilidad en el cupón.
 - Ninguna alerta enviada desde las pruebas del motor nuevo. El antiguo bot sigue
   activo; no se sustituye sin una fuente validada y doble comprobación.
 
