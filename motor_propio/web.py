@@ -16,7 +16,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
-from .engine import BadQuote, Quote, MARKETS, aware, decimal_odds
+from .engine import BadQuote, Quote, market_outcomes, aware, decimal_odds
 
 # Catálogo verificado de entidades españolas, no permiso de scraping.
 BOOK_HOSTS = {
@@ -56,7 +56,7 @@ def validate_profile(value):
     _domain(value.get("url"),brand)
     sport=value.get("sport")
     market=value.get("market")
-    outcomes=MARKETS.get((sport,market))
+    outcomes=market_outcomes(sport,market)
     if outcomes is None:
         raise BadQuote("Mercado o reglas no validados")
     selectors=value.get("selectors")
@@ -106,7 +106,7 @@ def parse_html(html: str | bytes, profile: dict, observed_at=None) -> Quote:
     home=_select_text(document,s["home"])
     away=_select_text(document,s["away"])
     start=_select_text(document,s["kickoff"])
-    labels=MARKETS[(profile["sport"],profile["market"])]
+    labels=market_outcomes(profile["sport"],profile["market"])
     prices={name:decimal_odds(_select_text(document,s[name])) for name in labels}
     return Quote(
         book=profile["book"],sport=profile["sport"],home=home,away=away,
