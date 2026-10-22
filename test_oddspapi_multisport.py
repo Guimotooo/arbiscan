@@ -2,7 +2,8 @@ import unittest
 from datetime import datetime,timezone,timedelta
 from fuentes_es.oddspapi_multisport import (
     SPORTS,BOOKS,choose_sport,choose_tournaments,valid_prices,evaluate_fixture,
-    join_results,scan,double_check,signature,evaluate_fixture_options,book_selection
+    join_results,scan,double_check,signature,evaluate_fixture_options,book_selection,
+    MAX_BOOKS_PER_SCAN
 )
 NOW=datetime(2026,10,21,17,tzinfo=timezone.utc)
 
@@ -32,12 +33,20 @@ class Tests(unittest.TestCase):
     def test_sports(self):
         self.assertEqual([x[0] for x in SPORTS],[10,11,12,14])
         self.assertEqual(len(BOOKS),11)
-    def test_choose_five_books_for_user_demand(self):
+    def test_choose_three_books_by_user_demand(self):
+        self.assertEqual(MAX_BOOKS_PER_SCAN,3)
+        demand={
+            "bet365.es|winamax.es":1,
+            "bet365.es|bwin.es":1,
+            "bwin.es|winamax.es":1,
+        }
+        chosen=book_selection(NOW,demand)
+        self.assertEqual(set(chosen),{"bet365.es","winamax.es","bwin.es"})
         choices=book_selection(NOW,{"888sport.es|pokerstars.es":3,"bet365.es|winamax.es":2})
-        self.assertEqual(len(choices),5)
-        self.assertTrue({"888sport.es","pokerstars.es","bet365.es","winamax.es"}.issubset(choices))
+        self.assertEqual(len(choices),MAX_BOOKS_PER_SCAN)
+        self.assertTrue({"888sport.es","pokerstars.es"}.issubset(choices))
         other=book_selection(NOW,{})
-        self.assertEqual(len(other),5)
+        self.assertEqual(len(other),MAX_BOOKS_PER_SCAN)
         self.assertIn("bet365.es",other)
         self.assertIn("winamax.es",other)
     def test_2way_arbitrage_each_sport(self):
@@ -107,6 +116,13 @@ class Tests(unittest.TestCase):
         self.assertEqual(len(selected),5)
         self.assertEqual(len(set(selected)),5)
         self.assertNotEqual(selected,choose_tournaments(t,NOW+timedelta(days=1)))
+    def test_two_daily_scans_visit_different_tournaments(self):
+        t=[{"tournamentId":i,"upcomingFixtures":1} for i in range(1,31)]
+        morning=choose_tournaments(t,NOW.replace(hour=7))
+        evening=choose_tournaments(t,NOW.replace(hour=18))
+        self.assertEqual(len(set(morning)),5)
+        self.assertEqual(len(set(evening)),5)
+        self.assertTrue(set(morning).isdisjoint(set(evening)))
     def test_empty_tournaments(self):
         self.assertEqual(choose_tournaments([{"tournamentId":2,"futureFixtures":0}],NOW),[])
 if __name__=="__main__":unittest.main()

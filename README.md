@@ -18,14 +18,37 @@ https://t.me/ArbiiScan_bot
 - **motor_propio/** — código nuevo escrito para ArbiiScan: lectura HTML permitida,
   normalización de cuotas, compatibilidad de reglas de mercado, cálculo de
   arbitrajes, doble lectura y filtros de calidad. Ver motor_propio/README.md.
-- **fuentes_es/oddspapi_multisport.py** — escáner actualmente programado mediante
-  el proveedor OddsPapi y limitado por sus 250 consultas mensuales gratuitas.
+- **fuentes_es/oddspapi_multisport.py** — búsqueda automática de encuentros
+  y comparación de cuotas de hasta 3 casas en dos rondas diarias. Utiliza
+  OddsPapi (250 consultas/mes en el plan actual) y solo envía posibles
+  oportunidades reales, reconfirmadas por segunda lectura y etiquetadas
+  como NO verificadas en el cupón.
 - **worker/arbiscan.mjs** — Telegram, preferencias por usuario, filtro de casas
   y distribución de alertas vía Cloudflare.
 - **scraping_es/** — pruebas anteriores de lectores de páginas con Scrapling y
   Playwright; no se han activado como fuente de alertas.
 - **test_motor_propio.py** — pruebas de cálculo y extracción (51 verificadas).
 - **.github/workflows/motor_propio_tests.yml** — tests del motor en GitHub Actions.
+
+## Búsqueda automática sin introducir partidos
+
+GitHub Actions ejecuta `.github/workflows/escaner_multisport.yml` a las
+07:15 y 18:15 UTC. No necesitas enviar /comparar ni /plantilla para recibir
+una alerta automática. Las casas se seleccionan según las preferencias
+guardadas en Telegram; se revisan competiciones distintas en cada ronda.
+Para limitar las peticiones gratuitas, hay como máximo 3 casas por escaneo
+y una reserva mínima de créditos (por eso puede detenerse a final de mes).
+Se prioriza fútbol 1X2, cuyos resultados están claramente definidos.
+
+Si hay un arbitraje matemático de al menos el 0,5 %, se vuelven a solicitar
+las cuotas de las casas implicadas y solo se difunde si coincide exactamente
+en ambas lecturas. Las alertas no certifican que las cuotas estén disponibles
+al apostar. **No es un scraper directo de Bet365 y no garantiza cobertura
+continua o en tiempo real; sigue usando OddsPapi.**
+
+El webhook de Telegram recibe mensajes, pero es el escáner programado quien
+envía las alertas sin interacción del usuario. /estado permite revisar la
+suscripción en el bot; no dispara un escaneo.
 
 ## Prueba del motor nuevo
 
