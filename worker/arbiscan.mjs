@@ -262,6 +262,26 @@ export default {
         const selected=readBooks(saved);
         text=saved?'✅ Casas guardadas: '+(selected.map(b=>AVAILABLE_BOOKS[b]).join(', ')||'ninguna')+'. Puedes cambiarlas con /casas.':'🔕 No estás suscrito. Envía /start.';
       }
+    }else if(command==='/escaneo'||command==='/estado_scan'){
+      const raw=env.SUBSCRIBERS?await env.SUBSCRIBERS.get('system:last_scan'):null;
+      if(!raw)text='No hay una búsqueda automática registrada todavía.';
+      else{
+        let status;
+        try{status=JSON.parse(raw);}catch{status=null;}
+        if(!status)text='No hay un estado válido de búsqueda.';
+        else{
+          const houses=(status.books||[]).map(x=>AVAILABLE_BOOKS[x]||x).join(', ');
+          text='🔎 ARBIISCAN · ÚLTIMO ESCANEO\n'+
+            'Estado: '+status.state+'\n'+
+            'Fecha UTC: '+status.checked_at+'\n'+
+            'Fuente: '+status.source+' (no scraping directo)\n'+
+            'Casas: '+(houses||'Ninguna')+'\n'+
+            'Partidos recibidos: '+status.fixture_count+'\n'+
+            'Candidatos: '+status.candidates+'\n'+
+            'Confirmados: '+status.confirmed+'\n'+
+            'Alertas enviadas: '+status.sent;
+        }
+      }
     }else if(command==='/prueba'||command==='/probar'){
       // Real Telegram -> webhook -> Cloudflare -> Telegram round trip, without fake odds.
       let subscriptions='No configuradas';
