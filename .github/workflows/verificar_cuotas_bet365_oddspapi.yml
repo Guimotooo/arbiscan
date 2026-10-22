@@ -1,0 +1,62 @@
+name: ArbiiScan - comprobar cuotas actuales Bet365 ES OddsPapi
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/verificar_cuotas_bet365_oddspapi.yml'
+permissions:
+  contents: read
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Consulta pequeña con reserva de cuota y prueba de vigencia
+        env:
+          ODDS_PAPI_KEY: ${{ secrets.ODDS_PAPI_KEY }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import datetime,timezone
+          from fuentes_es.oddspapi_multisport import api,choose_tournaments
+          from fuentes_es.oddspapi import remaining_quota,utc
+          key=os.environ.get("ODDS_PAPI_KEY","").strip()
+          if not key:
+              print("No hay clave de OddsPapi");raise SystemExit
+          left=remaining_quota(api("account",{},key))
+          print("Créditos antes:",left)
+          if left<35:
+              print("Reserva de cuota: no se realizan consultas de precios");raise SystemExit
+          now=datetime.now(timezone.utc)
+          tournaments=api("tournaments",{"sportId":10,"language":"es"},key)
+          chosen=choose_tournaments(tournaments,now)
+          print("Torneos con partidos elegidos:",len(chosen))
+          if not chosen:raise SystemExit
+          rows=api("odds-by-tournaments",{"tournamentIds":",".join(map(str,chosen)),
+                  "bookmaker":"bet365.es","language":"es","verbosity":3},key)
+          fixtures=rows if isinstance(rows,list) else rows.get("data",[])
+          print("Partidos del proveedor:",len(fixtures))
+          count=0
+          for fx in fixtures:
+              book=(fx.get("bookmakerOdds") or {}).get("bet365.es") or {}
+              market=(book.get("markets") or {}).get("101") or {}
+              outcomes=market.get("outcomes") or {}
+              quotes={}
+              for oid,choice in (("101","1"),("102","X"),("103","2")):
+                  item=(outcomes.get(oid) or {}).get("players") or {}
+                  price=(item.get("0") or {}).get("price")
+                  if price is not None:quotes[choice]=price
+              if quotes:
+                  count+=1
+                  if count<=3:
+                      print("CUOTA BET365 ES EN RESPUESTA ACTUAL:",
+                            str(fx.get("participant1Name",""))[:45],"vs",str(fx.get("participant2Name",""))[:45],
+                            "inicio:",str(fx.get("startTime","")),
+                            "updatedAt:",str(fx.get("updatedAt","")),
+                            "activo:",book.get("bookmakerIsActive"),"suspendido:",book.get("suspended"),
+                            "mercado activo:",market.get("marketActive"),"precios:",quotes)
+          print("Partidos con algún precio Bet365 ES 1X2:",count)
+          print("Momento consulta (UTC):",now.isoformat())
+          PY
