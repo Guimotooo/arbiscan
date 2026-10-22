@@ -2,7 +2,7 @@
 const BRAND = new Map(Object.entries({bet365:'Bet365', sportium:'Sportium',winamax:'Winamax',betfair:'Betfair',bwin:'bwin',codere:'Codere',luckia:'Luckia','william hill':'William Hill',betway:'Betway',retabet:'RETAbet',sportybet:'SportyBet'}));
 const norm=s=>String(s).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const number=s=>{const n=Number(String(s).trim().replace(',','.'));if(!Number.isFinite(n))throw Error('Número o cuota no válidos');return n;};
-const help='ArbiiScan: /prueba comprueba Telegram y Cloudflare en tiempo real; /plantilla y /comparar permiten comparar cuotas introducidas por ti (no se extraen automáticamente). /start o /casas seleccionan casas; /estado consulta preferencias; /stop cancela avisos. El escáner externo no garantiza cuotas actualizadas de Bet365.';
+const help='ArbiiScan: /escaneo muestra el último estado del escáner; /prueba comprueba la conexión; /start y /casas guardan preferencias; /estado consulta las casas; /stop cancela avisos. /plantilla y /comparar son funciones manuales.';
 const template='/comparar\nDeporte: futbol\nPartido: Barcelona vs Real Madrid\nMercado: total goles 2.5 (90 minutos)\nCapital: 100\nBet365 ES | mas | 2.10\nSportium ES | menos | 2.05\n\n⚠️ Precios ficticios de ejemplo. Sustituye las cuotas.';
 function outcomes(market,sport){
   const m=norm(market),s=norm(sport),soccer=s.includes('fut')||s.includes('soccer');
