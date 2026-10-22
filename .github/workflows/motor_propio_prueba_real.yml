@@ -1,0 +1,22 @@
+name: ArbiiScan - prueba real motor propio con OddsPapi
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/motor_propio_prueba_real.yml'
+permissions:
+  contents: read
+jobs:
+  probar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar parser de páginas
+        run: python -m pip install 'scrapling>=0.5,<0.6'
+      - name: Demostrar el motor con datos inventados identificados
+        run: python -m motor_propio.run --demo
+      - name: Auditar fuente autorizada con límite y sin alertas
+        env:
+          ODDS_PAPI_KEY: ${{ secrets.ODDS_PAPI_KEY }}
+        run: python -m motor_propio.run --odds-papi-audit
