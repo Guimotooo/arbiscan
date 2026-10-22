@@ -97,6 +97,12 @@ test('latest real scan status is authenticated and readable in Telegram',async()
    assert.equal((await worker.fetch(sendStatus('broadcastsecret',
      {...payload,state:'fictional'}),env)).status,400);
    assert.equal((await worker.fetch(sendStatus('broadcastsecret',payload),env)).status,200);
+   const url='https://arbiscan.test/scan-status';
+   assert.equal((await worker.fetch(new Request(url),env)).status,403);
+   const report=await worker.fetch(new Request(url,{
+     headers:{Authorization:'Bearer broadcastsecret'}}),env);
+   assert.equal(report.status,200);
+   assert.equal((await report.json()).fixture_count,36);
    assert.equal((await worker.fetch(command,env)).status,200);
    assert.equal(posts.length,1);
    assert.match(posts[0].body.text,/Partidos recibidos: 36/);
