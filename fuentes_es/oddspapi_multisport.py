@@ -101,6 +101,9 @@ def valid_prices(fixture, sport, now):
     sid, _, market_id, outcomes, _ = sport
     if fixture.get("sportId")!=sid or fixture.get("statusId")!=0:
         return {}
+    updated=utc(fixture.get("updatedAt"))
+    if updated is None or not 0 <= (now-updated).total_seconds() <= 3600:
+        return {}  # no confundir lectura reciente de API con actualización reciente del evento
     kickoff=utc(fixture.get("startTime"))
     if not kickoff or kickoff<=now+timedelta(minutes=MIN_LEAD_MINUTES):
         return {}
