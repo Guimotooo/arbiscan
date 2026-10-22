@@ -36,7 +36,7 @@ def snapshot(*, app_key, session_token, now=None, opener=urlopen):
     now = now or datetime.now(timezone.utc)
     until = now + timedelta(days=2)
     catalog = rpc("listMarketCatalogue", {
-        "filter": {"marketTypeCodes": ["MATCH_ODDS"],
+        "filter": {"eventTypeIds": ["1"], "marketTypeCodes": ["MATCH_ODDS"],
                    "marketStartTime": {"from": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
                                        "to": until.strftime("%Y-%m-%dT%H:%M:%SZ")}},
         "maxResults": "30", "marketProjection": ["EVENT", "RUNNER_DESCRIPTION", "MARKET_START_TIME"],
