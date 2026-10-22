@@ -63,9 +63,20 @@ class Tests(unittest.TestCase):
     def test_reject_wrong_market(self):
         f=fixture(SPORTS[1]);f["sportId"]=12
         self.assertIsNone(evaluate_fixture(f,SPORTS[1],NOW))
-    def test_reject_stale_event_metadata(self):
+    def test_accept_recent_prices_when_event_metadata_old(self):
         f=fixture(SPORTS[1])
-        f["updatedAt"]=(NOW-timedelta(hours=3)).isoformat()
+        f["updatedAt"]=(NOW-timedelta(days=3)).isoformat()
+        self.assertIsNotNone(evaluate_fixture(f,SPORTS[1],NOW))
+    def test_reject_prices_older_than_one_hour(self):
+        f=fixture(SPORTS[1])
+        for book in f["bookmakerOdds"].values():
+            first_outcome=book["markets"]["111"]["outcomes"]["111"]["players"]["0"]
+            first_outcome["changedAt"]=(NOW-timedelta(hours=2)).isoformat()
+        self.assertIsNone(evaluate_fixture(f,SPORTS[1],NOW))
+    def test_reject_missing_selection_timestamp(self):
+        f=fixture(SPORTS[1])
+        for book in f["bookmakerOdds"].values():
+            del book["markets"]["111"]["outcomes"]["111"]["players"]["0"]["changedAt"]
         self.assertIsNone(evaluate_fixture(f,SPORTS[1],NOW))
     def test_reject_suspended(self):
         f=fixture(SPORTS[1])

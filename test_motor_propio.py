@@ -328,10 +328,26 @@ class ProviderAdapterTests(unittest.TestCase):
         self.assertEqual(len(out),2)
         self.assertEqual(out[0].source,"licensed_feed")
         self.assertTrue(opportunities(out,NOW))
-    def test_reject_stale_updatedat_in_opportunities(self):
+    def test_old_event_metadata_does_not_hide_recent_prices(self):
         out=convert_fixture(provider_fixture(updated=NOW-timedelta(hours=10)),NOW)
         self.assertEqual(len(out),2)
+        self.assertTrue(opportunities(out,NOW))
+    def test_old_selection_rejected_even_when_event_metadata_recent(self):
+        f=provider_fixture()
+        for book in f["bookmakerOdds"].values():
+            for outcome in book["markets"]["101"]["outcomes"].values():
+                outcome["players"]["0"]["changedAt"]=(NOW-timedelta(hours=2)).isoformat()
+        out=convert_fixture(f,NOW)
+        self.assertEqual(len(out),2)
         self.assertFalse(opportunities(out,NOW))
+    def test_market_uses_oldest_selection_change(self):
+        f=provider_fixture()
+        outcome=f["bookmakerOdds"]["bet365.es"]["markets"]["101"]["outcomes"]["102"]
+        outcome["players"]["0"]["changedAt"]=(NOW-timedelta(hours=2)).isoformat()
+        out=convert_fixture(f,NOW)
+        self.assertEqual(len(out),2)
+        self.assertFalse(out[0].valid_at(NOW))
+        self.assertTrue(out[1].valid_at(NOW))
     def test_reject_inactive_or_suspended(self):
         f=provider_fixture()
         f["bookmakerOdds"]["bet365.es"]["suspended"]=True

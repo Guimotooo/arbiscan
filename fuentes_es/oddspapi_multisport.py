@@ -27,7 +27,8 @@ SPORTS = (
     (12, "Tenis", "121", {"121": "1", "122": "2"}, "Ganador del partido"),
     (14, "Fútbol americano", "141", {"141": "1", "142": "2"}, "Ganador del partido"),
 )
-MAX_AGE_SECONDS = 7 * 86400
+# Ventana conservadora de movimientos de cuotas, NO de metadatos del evento.
+MAX_AGE_SECONDS = 3600
 MAX_LEAGUES_PER_SCAN = 5
 MIN_LEAD_MINUTES = 15
 MAX_ALERTS = 30
@@ -101,9 +102,9 @@ def valid_prices(fixture, sport, now):
     sid, _, market_id, outcomes, _ = sport
     if fixture.get("sportId")!=sid or fixture.get("statusId")!=0:
         return {}
-    updated=utc(fixture.get("updatedAt"))
-    if updated is None or not 0 <= (now-updated).total_seconds() <= 3600:
-        return {}  # no confundir lectura reciente de API con actualización reciente del evento
+    # updatedAt corresponde a metadatos del partido y puede ser antiguo
+    # incluso cuando changedAt de las selecciones es reciente.
+    # La validación se hace abajo, selección por selección.
     kickoff=utc(fixture.get("startTime"))
     if not kickoff or kickoff<=now+timedelta(minutes=MIN_LEAD_MINUTES):
         return {}
