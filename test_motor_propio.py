@@ -3,12 +3,14 @@ import random
 from datetime import datetime,timedelta,timezone
 from decimal import Decimal
 from unittest.mock import patch
+from tempfile import NamedTemporaryFile
+import json
 
 from motor_propio.engine import (
     Quote,BadQuote,aware,token,decimal_odds,from_record,
     opportunities,confirm,fingerprint,alert,market_outcomes,
 )
-from motor_propio.web import validate_profile,parse_html,load_profiles
+from motor_propio.web import validate_profile,parse_html,load_profiles,scrape_profiles,local_records,fetch_page
 from motor_propio.oddspapi_adapter import convert_fixture,convert_fixtures
 
 NOW=datetime(2026,10,22,11,0,tzinfo=timezone.utc)
@@ -247,6 +249,50 @@ class WebParserTests(unittest.TestCase):
             with self.subTest(url=url):
                 with self.assertRaises(BadQuote):validate_profile(cfg)
 
+
+class EndToEndTests(unittest.TestCase):
+    def test_two_book_html_extraction_to_arbitrage_without_network(self):
+        a=profile()
+        b=profile()
+        b["book"]="codere.es"
+        b["url"]="https://www.codere.es/sports/match/1234"
+        raw_a=sample_html(price="3.80").replace(
+            '<span class="odds-away">1.80</span>',
+            '<span class="odds-away">1.80</span>')
+        raw_b=sample_html(price="1.80").replace(
+            '<span class="odds-away">1.80</span>',
+            '<span class="odds-away">3.80</span>')
+        # Mejor cuota local de Winamax, visitante de Codere,
+        # empate de una de las dos; ambos precios extraídos del HTML.
+        with patch("motor_propio.web.fetch_page",side_effect=[raw_a,raw_b]), \
+             patch("motor_propio.web.time.sleep"):
+            quotes=scrape_profiles([a,b])
+        self.assertEqual(len(quotes),2)
+        results=opportunities(quotes,datetime.now(timezone.utc))
+        self.assertTrue(results)
+        self.assertTrue({"winamax.es","codere.es"}.issubset(results[0]["books"]))
+    def test_reject_http403_without_retry(self):
+        from urllib.error import HTTPError
+        from io import BytesIO
+        denied=HTTPError("https://www.winamax.es/",403,"Blocked",{},BytesIO(b""))
+        with patch("motor_propio.web.urlopen",side_effect=denied) as opener:
+            with self.assertRaisesRegex(BadQuote,"HTTP 403"):
+                fetch_page(profile())
+            self.assertEqual(opener.call_count,1)
+    def test_import_licensed_json_feed(self):
+        data=[{
+            "book":"winamax.es","sport":"soccer",
+            "home":"Cambrian United","away":"Airbus UK Broughton",
+            "kickoff":START.isoformat(),"market":"1x2:regulation",
+            "prices":SOCCER_A,"observed_at":NOW.isoformat(),"source":"licensed_feed"}]
+        with NamedTemporaryFile("w",encoding="utf-8",suffix=".json",delete=False) as f:
+            json.dump(data,f);name=f.name
+        try:
+            results=local_records(name)
+            self.assertEqual(results[0].book,"winamax.es")
+        finally:
+            from pathlib import Path
+            Path(name).unlink()
 
 class ProviderAdapterTests(unittest.TestCase):
     def test_accepts_complete_active_sport_1x2(self):
