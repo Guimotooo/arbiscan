@@ -121,6 +121,25 @@ export default {
   async fetch(request,env){
     const path=new URL(request.url).pathname;
     if(request.method==='GET'&&path==='/health')return new Response('ArbiiScan webhook disponible');
+    if(request.method==='POST'&&path==='/scan-status'){
+      if(!env.BROADCAST_SECRET||!env.SUBSCRIBERS)return json({error:'No configurado'},503);
+      if(request.headers.get('Authorization')!=='Bearer '+String(env.BROADCAST_SECRET).trim())
+        return json({error:'No autorizado'},403);
+      let value;
+      try{value=await request.json();}catch{return json({error:'JSON inválido'},400);}
+      if(!['running','finished','failed','skipped'].includes(value?.state)||
+        !/^20[0-9]{2}-[0-9]{2}-[0-9]{2}T/.test(String(value?.checked_at||''))||
+        !Array.isArray(value?.books)||value.books.some(k=>!Object.hasOwn(AVAILABLE_BOOKS,k))||
+        !['fixture_count','candidates','confirmed','sent'].every(k=>
+           value[k]===undefined||(Number.isSafeInteger(value[k])&&value[k]>=0&&value[k]<=100000)))
+        return json({error:'Estado inválido'},400);
+      const record={state:value.state,checked_at:value.checked_at,
+        source:'OddsPapi',books:value.books,
+        fixture_count:value.fixture_count||0,candidates:value.candidates||0,
+        confirmed:value.confirmed||0,sent:value.sent||0};
+      await env.SUBSCRIBERS.put('system:last_scan',JSON.stringify(record));
+      return json({ok:true});
+    }
     if(request.method==='GET'&&path==='/scan-preferences'){
       if(!env.BROADCAST_SECRET||!env.SUBSCRIBERS)return json({error:'KV sin configurar'},503);
       if(request.headers.get('Authorization')!=='Bearer '+String(env.BROADCAST_SECRET).trim())
