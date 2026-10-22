@@ -1,8 +1,15 @@
-name: ArbiiScan - escaner ES multidporte automatico
+name: ArbiiScan - busqueda automatica de arbitrajes ES
 on:
   workflow_dispatch:
+  # Enviar candidatos cuando existan; sin avisos ficticios ni solicitud al usuario.
+  push:
+    branches: [main]
+    paths:
+      - 'fuentes_es/oddspapi_multisport.py'
+      - '.github/workflows/escaner_multisport.yml'
+  # Dos rondas diarias con la cuota gratuita: 07:15 y 18:15 UTC.
   schedule:
-    - cron: '15 18 * * *'
+    - cron: '15 7,18 * * *'
 permissions:
   contents: read
 concurrency:
