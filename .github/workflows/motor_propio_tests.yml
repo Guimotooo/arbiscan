@@ -16,5 +16,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Instalar dependencias del parser HTML
         run: python -m pip install 'scrapling>=0.5,<0.6'
+      - name: Validar sintaxis de los modulos
+        run: python -m compileall -q motor_propio
       - name: Comprobar cuotas, mercados, arbitrajes, selectores y seguridad
         run: python -m unittest -v test_motor_propio.py
+      - name: Comprobar arranque real del motor sin enviar alertas
+        run: python -m motor_propio.run --demo
