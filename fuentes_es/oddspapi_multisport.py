@@ -73,7 +73,10 @@ def choose_tournaments(rows, now):
         return []
     # Rota por todas las competiciones con partidos; nunca por popularidad.
     k=min(MAX_LEAGUES_PER_SCAN, len(eligible))
-    index=now.date().toordinal() % len(eligible)
+    # Dos rondas diarias: explorar otros torneos en la segunda en lugar de
+    # volver a consultar exactamente las mismas competiciones.
+    slot = 0 if now.hour < 12 else 1
+    index=(now.date().toordinal()*2 + slot)*k % len(eligible)
     return [eligible[(index+i) % len(eligible)] for i in range(k)]
 
 def join_results(per_book):
