@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - 'fuentes_es/oddspapi_multisport.py'
+      - 'fuentes_es/scan_status.py'
+      - 'test_scan_status.py'
       - '.github/workflows/escaner_multisport.yml'
   # Dos rondas diarias con la cuota gratuita: 07:15 y 18:15 UTC.
   schedule:
@@ -32,3 +34,25 @@ jobs:
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
           ARBI_WORKER_URL: https://arbiscan.dame-un-like-porfavor.workers.dev
         run: python -m fuentes_es.oddspapi_multisport
+      - name: Confirmar registro del escaneo en Cloudflare
+        env:
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+        run: |
+          python - <<'PY'
+          import json,os
+          from urllib.request import Request,urlopen
+          from datetime import datetime,timezone
+          secret=os.getenv("WEBHOOK_SECRET","").strip()
+          if not secret:
+              raise SystemExit("No hay secreto para verificar el estado")
+          req=Request("https://arbiscan.dame-un-like-porfavor.workers.dev/scan-status",
+            headers={"Authorization":"Bearer "+secret,"User-Agent":"curl/8.5.0","Accept":"application/json"})
+          with urlopen(req,timeout=15) as res:
+              state=json.load(res)
+          assert state.get("source")=="OddsPapi", "No se guardó el estado real"
+          assert state.get("state") in ("finished","skipped"), "Escaneo sin resultado final"
+          t=datetime.fromisoformat(state["checked_at"].replace("Z","+00:00"))
+          age=(datetime.now(timezone.utc)-t).total_seconds()
+          assert -10<=age<=180, "Estado antiguo o no verificable"
+          print("Estado comprobado:",state["state"],"Partidos:",state["fixture_count"],"Candidatos:",state["candidates"])
+          PY
