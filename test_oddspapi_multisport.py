@@ -63,6 +63,10 @@ class Tests(unittest.TestCase):
     def test_reject_wrong_market(self):
         f=fixture(SPORTS[1]);f["sportId"]=12
         self.assertIsNone(evaluate_fixture(f,SPORTS[1],NOW))
+    def test_reject_stale_event_metadata(self):
+        f=fixture(SPORTS[1])
+        f["updatedAt"]=(NOW-timedelta(hours=3)).isoformat()
+        self.assertIsNone(evaluate_fixture(f,SPORTS[1],NOW))
     def test_reject_suspended(self):
         f=fixture(SPORTS[1])
         for v in f["bookmakerOdds"].values():v["suspended"]=True
