@@ -1,0 +1,25 @@
+[
+  {
+    "book": "winamax.es",
+    "url": "https://www.winamax.es/en/sports-betting/match/ID_DE_PARTIDO",
+    "sport": "soccer",
+    "market": "1x2:regulation",
+    "mode": "browser",
+    "wait_ms": 2500,
+    "permission_confirmed": false,
+    "market_scope": ".SELECTOR_VERIFICADO_DEL_MERCADO",
+    "market_label": "Resultado final",
+    "selectors": {
+      "1": ".SELECTOR_VERIFICADO_CUOTA_LOCAL",
+      "2": ".SELECTOR_VERIFICADO_CUOTA_VISITANTE",
+      "home": ".SELECTOR_VERIFICADO_LOCAL",
+      "away": ".SELECTOR_VERIFICADO_VISITANTE",
+      "kickoff": {
+        "css": "time.SELECTOR_VERIFICADO_HORARIO",
+        "attribute": "datetime"
+      },
+      "market_heading": ".SELECTOR_VERIFICADO_DEL_TITULO",
+      "X": ".SELECTOR_VERIFICADO_CUOTA_EMPATE"
+    }
+  }
+]
