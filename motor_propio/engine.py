@@ -116,7 +116,7 @@ class Quote:
             raise BadQuote("No se conocen todos los resultados del mismo mercado")
         clean = {name: decimal_odds(self.prices[name]) for name in expected}
         object.__setattr__(self, "prices", clean)
-        if self.source not in ("licensed_feed", "permitted_web", "fixture_test"):
+        if self.source not in ("licensed_feed", "permitted_web", "fixture_test", "manual_observation"):
             raise BadQuote("Fuente no identificada")
 
     @property
