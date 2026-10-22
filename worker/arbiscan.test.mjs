@@ -47,6 +47,32 @@ test('Telegram user selects bookmakers and only receives matching alerts',async(
   assert.equal(delivered.filter(x=>x.body.text?.startsWith('Posible')).length,1);
  }finally{globalThis.fetch=previous;}
 });
+test('real /prueba verifies a private Telegram to Cloudflare round trip without invented odds',async()=>{
+ const kv=fakeKV();
+ await kv.put('subscriber:17',JSON.stringify({books:['bet365.es','winamax.es']}));
+ const env={WEBHOOK_SECRET:'webhook-secret',TELEGRAM_BOT_TOKEN:'testtoken',SUBSCRIBERS:kv};
+ const previous=globalThis.fetch,delivered=[];
+ globalThis.fetch=async(url,init)=>{
+  delivered.push({url,body:JSON.parse(init.body)});
+  return new Response('{"ok":true}',{status:200});
+ };
+ const req=new Request('https://arbiscan.test/telegram',{
+  method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':'webhook-secret','content-type':'application/json'},
+  body:JSON.stringify({message:{text:'/prueba',chat:{type:'private',id:17}}})
+ });
+ try{
+  assert.equal((await worker.fetch(req,env)).status,200);
+  assert.equal(delivered.length,1);
+  assert.match(delivered[0].body.text,/PRUEBA REAL DE CONEXIÓN/);
+  assert.match(delivered[0].body.text,/Bet365 ES, Winamax ES/);
+  assert.match(delivered[0].body.text,/NO obtiene cuotas de Bet365/);
+  assert.match(delivered[0].body.text,/\\d{4}-\\d{2}-\\d{2}T/);
+  assert.equal((await worker.fetch(req,{...env,WEBHOOK_SECRET:'wrong'})).status,403);
+  assert.equal(delivered.length,1);
+ }finally{
+  globalThis.fetch=previous;
+ }
+});
 test('broadcast rejects unauthenticated calls',async()=>{
   const env={WEBHOOK_SECRET:'s',BROADCAST_SECRET:'s',TELEGRAM_BOT_TOKEN:'t',SUBSCRIBERS:fakeKV()};
   const response=await worker.fetch(new Request('https://arbiscan.test/broadcast',{method:'POST'}),env);
