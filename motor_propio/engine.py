@@ -197,7 +197,7 @@ def opportunities(quotes: list[Quote], now=None, bankroll=Decimal("100.00")):
                     continue
                 stakes,profit,roi=result
                 previous=best_by_books.get(distinct)
-                if previous and previous["profit"]>=profit:
+                if previous and Decimal(previous["profit"])>=profit:
                     continue
                 offers=[{"book":q.book,"outcome":label,"price":str(q.prices[label]),
                          "stake":str(stake),"source":q.source}
