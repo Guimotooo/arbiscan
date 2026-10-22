@@ -44,9 +44,12 @@ Esta comprobación consume créditos del plan gratuito y no envía avisos.
 ## Estado y límites
 
 - El motor propio ha superado 51 tests y sus comprobaciones de ejecución.
-- La auditoría real del 22/10/2026 devolvió 30 partidos y 41 cotizaciones
-  normalizadas de Bet365 ES y Winamax ES, pero ninguna con actualización del
-  evento lo bastante reciente como para considerarla validada para alertas.
+- La auditoría real previa del 22/10/2026 devolvió 30 partidos y 41
+  cotizaciones normalizadas de Bet365 ES y Winamax ES. Se corrigió un
+  falso descarte: updatedAt describe el evento, mientras changedAt describe
+  los cambios de cuotas de cada selección (según OddsPapi). Ahora se exige
+  changedAt reciente para todas las selecciones; falta una auditoría real
+  posterior a esta corrección para medir cobertura efectiva.
 - Los sitios deportivos pueden denegar el acceso o prohibir scraping. **Bet365
   España prohíbe expresamente la extracción automatizada de cuotas** en sus
   términos; el proyecto no incluye evasión de acceso a esa página.
